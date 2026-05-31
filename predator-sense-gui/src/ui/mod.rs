@@ -1,5 +1,8 @@
 pub mod window;
-pub mod home_page;
+pub mod dashboard_page;
+pub mod temperatures_page;
+pub mod network_page;
+pub mod usage_page;
 pub mod rgb_page;
 pub mod fan_page;
 pub mod fan_control_page;

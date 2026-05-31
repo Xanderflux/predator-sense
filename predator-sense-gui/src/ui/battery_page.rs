@@ -283,7 +283,11 @@ pub fn build() -> gtk::Box {
         glib::idle_add_local_once(move || update(&a, &bp2, &bc2, &h2));
     }
 
+    let page_c = page.clone();
     glib::timeout_add_seconds_local(2, move || {
+        if !crate::app_state::is_window_visible() || !page_c.is_visible() {
+            return glib::ControlFlow::Continue;
+        }
         update(&all, &bp, &bc, &hist);
         glib::ControlFlow::Continue
     });

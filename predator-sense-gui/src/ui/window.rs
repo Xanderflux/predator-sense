@@ -8,7 +8,10 @@ use std::rc::Rc;
 use crate::config;
 use crate::hardware::{rgb, sensors, setup};
 use crate::tray::TrayManager;
-use crate::ui::{battery_page, fan_control_page, fan_page, gpu_page, home_page, monitor_page, rgb_page, setup_page};
+use crate::ui::{
+    battery_page, dashboard_page, fan_control_page, fan_page, gpu_page, monitor_page,
+    network_page, rgb_page, setup_page, temperatures_page, usage_page,
+};
 
 thread_local! {
     static HOLD_GUARD: RefCell<Option<gio::ApplicationHoldGuard>> = RefCell::new(None);
@@ -19,8 +22,8 @@ pub fn build(app: &adw::Application) {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .title("Predator Sense")
-        .default_width(1160)
-        .default_height(760)
+        .default_width(1360)
+        .default_height(900)
         .resizable(true)
         .decorated(true)
         .build();
@@ -66,16 +69,7 @@ pub fn build(app: &adw::Application) {
     btn_close.connect_clicked(move |_| {
         let cfg = config::load_app_config();
         if cfg.minimize_on_close {
-            win_c2.set_visible(false);
-            HOLD_GUARD.with(|g| *g.borrow_mut() = Some(app_c.hold()));
-            TRAY.with(|t| {
-                let mut tray = t.borrow_mut();
-                if tray.is_none() {
-                    let mut tm = TrayManager::new();
-                    tm.start();
-                    *tray = Some(tm);
-                }
-            });
+            hide_to_tray(&win_c2, &app_c);
         } else {
             win_c2.close();
         }
@@ -101,24 +95,7 @@ pub fn build(app: &adw::Application) {
         let cfg = config::load_app_config();
         eprintln!("[close] minimize_on_close={}", cfg.minimize_on_close);
         if cfg.minimize_on_close {
-            // Hide window instead of closing
-            win.set_visible(false);
-            // Keep the GTK app alive
-            HOLD_GUARD.with(|g| {
-                if g.borrow().is_none() {
-                    *g.borrow_mut() = Some(app_clone.hold());
-                }
-            });
-            // Start tray icon if not already running
-            TRAY.with(|t| {
-                let mut tray = t.borrow_mut();
-                if tray.is_none() || !tray.as_ref().map(|t| t.started).unwrap_or(false) {
-                    let mut tm = TrayManager::new();
-                    tm.start();
-                    *tray = Some(tm);
-                }
-            });
-            // Prevent the window from being destroyed
+            hide_to_tray(win, &app_clone);
             glib::Propagation::Stop
         } else {
             glib::Propagation::Proceed
@@ -126,6 +103,36 @@ pub fn build(app: &adw::Application) {
     });
 
     window.present();
+}
+
+/// Esconde a janela e garante que o tray helper está rodando.
+/// Unifica o comportamento do botão ✕ custom e do close request do WM.
+fn hide_to_tray<W: IsA<gtk::Widget>>(win: &W, app: &adw::Application) {
+    crate::app_state::set_window_visible(false);
+    win.set_visible(false);
+    // Mantém app viva enquanto estiver no tray
+    HOLD_GUARD.with(|g| {
+        if g.borrow().is_none() {
+            *g.borrow_mut() = Some(app.hold());
+        }
+    });
+    // Garante tray rodando (reinicia se morreu)
+    TRAY.with(|t| {
+        let mut tray = t.borrow_mut();
+        let need_start = match tray.as_ref() {
+            Some(tm) => !tm.started,
+            None => true,
+        };
+        if need_start {
+            let mut tm = TrayManager::new();
+            tm.start();
+            *tray = Some(tm);
+        } else if let Some(tm) = tray.as_mut() {
+            // Revalida: o processo pode ter morrido; start() é idempotente e re-spawna se preciso.
+            tm.start();
+        }
+    });
+    eprintln!("[close] janela escondida, tray iniciado");
 }
 
 fn build_with_setup(app: &adw::Application, window: &gtk::ApplicationWindow, _header: &gtk::HeaderBar) {
@@ -167,12 +174,17 @@ fn build_main_ui(app: &adw::Application, window: &gtk::ApplicationWindow) {
         });
     }
 
-    // Animate at ~30fps
+    // Animate at ~5fps. The neon edge is a slow background pulse — full 60fps
+    // here was visually identical but burned ~30% CPU drawing layered Cairo
+    // strokes on every redraw cycle of the entire window.
     let neon_c = neon_bars.clone();
     let phase_c = pulse_phase.clone();
-    glib::timeout_add_local(std::time::Duration::from_millis(33), move || {
+    glib::timeout_add_local(std::time::Duration::from_millis(200), move || {
+        if !crate::app_state::is_window_visible() {
+            return glib::ControlFlow::Continue;
+        }
         let mut p = phase_c.borrow_mut();
-        *p += 0.02;
+        *p += 0.12;
         if *p > 1.0 { *p -= 1.0; }
         drop(p);
         neon_c.queue_draw();
@@ -236,7 +248,10 @@ fn build_main_content(app: &adw::Application, _window: &gtk::ApplicationWindow) 
     stack.set_vexpand(true);
 
     let initial_sensors = sensors::read_all_sensors();
-    let home = home_page::build(&initial_sensors);
+    let dashboard = dashboard_page::build();
+    let temperatures = temperatures_page::build(&initial_sensors);
+    let network = network_page::build();
+    let usage = usage_page::build();
     let rgb = rgb_page::build();
     let fan = fan_page::build();
     let fan_ctrl = fan_control_page::build();
@@ -245,7 +260,10 @@ fn build_main_content(app: &adw::Application, _window: &gtk::ApplicationWindow) 
     let monitor = monitor_page::build();
     let settings = build_settings_page(app);
 
-    stack.add_named(&home, Some("home"));
+    stack.add_named(&dashboard, Some("home"));
+    stack.add_named(&temperatures, Some("temperatures"));
+    stack.add_named(&network, Some("network"));
+    stack.add_named(&usage, Some("usage"));
     stack.add_named(&rgb, Some("lighting"));
     stack.add_named(&fan, Some("fan"));
     stack.add_named(&fan_ctrl, Some("fan_ctrl"));
@@ -257,6 +275,9 @@ fn build_main_content(app: &adw::Application, _window: &gtk::ApplicationWindow) 
     // Menu items
     let nav_items = vec![
         (crate::i18n::t("home_page"), "home"),
+        (crate::i18n::t("temperatures"), "temperatures"),
+        (crate::i18n::t("usage"), "usage"),
+        (crate::i18n::t("network"), "network"),
         (crate::i18n::t("lighting"), "lighting"),
         (crate::i18n::t("perf_mode"), "fan"),
         (crate::i18n::t("fan_control"), "fan_ctrl"),
@@ -341,7 +362,7 @@ fn build_main_content(app: &adw::Application, _window: &gtk::ApplicationWindow) 
     model.set_halign(gtk::Align::Center);
     info_box.append(&model);
 
-    let ver = gtk::Label::new(Some("v0.2.1 • Linux"));
+    let ver = gtk::Label::new(Some("v0.2.7 • Linux"));
     ver.add_css_class("info-text-dim");
     ver.set_halign(gtk::Align::Center);
     info_box.append(&ver);
@@ -392,17 +413,21 @@ fn build_main_content(app: &adw::Application, _window: &gtk::ApplicationWindow) 
 
     main_overlay.add_overlay(&layout);
 
-    // Periodic home page refresh
+    // Refresh periódico da página de temperaturas (gauges precisam recalcular).
+    // Gated por visibilidade do window e da aba — evita rebuild quando no tray.
     let stack_c = stack.clone();
     glib::timeout_add_seconds_local(2, move || {
-        if stack_c.visible_child_name().as_deref() == Some("home") {
+        if !crate::app_state::is_window_visible() {
+            return glib::ControlFlow::Continue;
+        }
+        if stack_c.visible_child_name().as_deref() == Some("temperatures") {
             let s = sensors::read_all_sensors();
-            let new_home = home_page::build(&s);
-            if let Some(old) = stack_c.child_by_name("home") {
+            let new_temps = temperatures_page::build(&s);
+            if let Some(old) = stack_c.child_by_name("temperatures") {
                 stack_c.remove(&old);
             }
-            stack_c.add_named(&new_home, Some("home"));
-            stack_c.set_visible_child_name("home");
+            stack_c.add_named(&new_temps, Some("temperatures"));
+            stack_c.set_visible_child_name("temperatures");
         }
         glib::ControlFlow::Continue
     });

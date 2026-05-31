@@ -250,12 +250,16 @@ pub fn build() -> gtk::Box {
     let cr1 = cpu_rpm.clone();
     let gr1 = gpu_rpm.clone();
 
-    glib::timeout_add_local(std::time::Duration::from_millis(33), move || {
+    let page_anim = page.clone();
+    glib::timeout_add_local(std::time::Duration::from_millis(60), move || {
+        if !crate::app_state::is_window_visible() || !page_anim.is_visible() {
+            return glib::ControlFlow::Continue;
+        }
         let cpu_r = *cr1.borrow();
         let gpu_r = *gr1.borrow();
         let avg_rpm = ((cpu_r + gpu_r) / 2) as f64;
-        // Speed proportional to RPM (0-6000 range)
-        let speed = (avg_rpm / 6000.0).clamp(0.02, 1.0) * 0.2;
+        // Speed proportional to RPM (0-6000 range), faster step now (60ms tick)
+        let speed = (avg_rpm / 6000.0).clamp(0.02, 1.0) * 0.4;
         let mut r = rot_c.borrow_mut();
         *r += speed;
         if *r > 2.0 * PI { *r -= 2.0 * PI; }
@@ -265,12 +269,16 @@ pub fn build() -> gtk::Box {
         glib::ControlFlow::Continue
     });
 
-    // Sensor update (every 2s)
+    // Sensor update (every 2s, pausado quando window oculto)
     let cr2 = cpu_rpm.clone();
     let gr2 = gpu_rpm.clone();
     let ct2 = cpu_temp.clone();
     let gt2 = gpu_temp.clone();
+    let page_sense = page.clone();
     glib::timeout_add_seconds_local(2, move || {
+        if !crate::app_state::is_window_visible() || !page_sense.is_visible() {
+            return glib::ControlFlow::Continue;
+        }
         let data = sensors::read_all_sensors();
         if let Some(r) = data.cpu_fan_rpm { *cr2.borrow_mut() = r; }
         if let Some(r) = data.gpu_fan_rpm { *gr2.borrow_mut() = r; }

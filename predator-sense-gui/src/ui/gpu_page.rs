@@ -5,30 +5,9 @@ use std::collections::VecDeque;
 use std::f64::consts::PI;
 use std::rc::Rc;
 
-const HISTORY: usize = 60;
+use crate::hardware::gpu::{read_gpu_metrics, GpuMetrics};
 
-#[derive(Debug, Clone, Default)]
-struct GpuMetrics {
-    name: String,
-    driver: String,
-    vbios: String,
-    vram_total_mb: u32,
-    vram_used_mb: u32,
-    vram_free_mb: u32,
-    temp: f64,
-    clock_core_mhz: u32,
-    clock_mem_mhz: u32,
-    clock_max_core: u32,
-    clock_max_mem: u32,
-    util_gpu_pct: u32,
-    util_mem_pct: u32,
-    power_draw_w: f64,
-    power_limit_w: f64,
-    power_max_w: f64,
-    pstate: String,
-    pcie_gen: String,
-    pcie_width: String,
-}
+const HISTORY: usize = 60;
 
 struct GpuState {
     temp_history: VecDeque<f64>,
@@ -36,41 +15,6 @@ struct GpuState {
     power_history: VecDeque<f64>,
     vram_history: VecDeque<f64>,
     clock_history: VecDeque<f64>,
-}
-
-fn read_gpu_metrics() -> GpuMetrics {
-    let o = std::process::Command::new("nvidia-smi")
-        .args(["--query-gpu=name,driver_version,vbios_version,memory.total,memory.used,memory.free,temperature.gpu,clocks.gr,clocks.mem,clocks.max.gr,clocks.max.mem,utilization.gpu,utilization.memory,power.draw,power.limit,power.max_limit,pstate,pcie.link.gen.current,pcie.link.width.current",
-               "--format=csv,noheader,nounits"])
-        .output();
-    let o = match o { Ok(o) if o.status.success() => o, _ => return GpuMetrics::default() };
-    let t = String::from_utf8_lossy(&o.stdout);
-    let p: Vec<&str> = t.trim().split(", ").collect();
-    if p.len() < 19 { return GpuMetrics::default(); }
-    let parse_u32 = |s: &str| s.trim().replace(" MiB", "").replace(" MHz", "").replace(" W", "").replace(" %", "").replace("[N/A]", "0").parse::<u32>().unwrap_or(0);
-    let parse_f64 = |s: &str| s.trim().replace(" W", "").replace("[N/A]", "0").parse::<f64>().unwrap_or(0.0);
-
-    GpuMetrics {
-        name: p[0].trim().into(),
-        driver: p[1].trim().into(),
-        vbios: p[2].trim().into(),
-        vram_total_mb: parse_u32(p[3]),
-        vram_used_mb: parse_u32(p[4]),
-        vram_free_mb: parse_u32(p[5]),
-        temp: parse_f64(p[6]),
-        clock_core_mhz: parse_u32(p[7]),
-        clock_mem_mhz: parse_u32(p[8]),
-        clock_max_core: parse_u32(p[9]),
-        clock_max_mem: parse_u32(p[10]),
-        util_gpu_pct: parse_u32(p[11]),
-        util_mem_pct: parse_u32(p[12]),
-        power_draw_w: parse_f64(p[13]),
-        power_limit_w: parse_f64(p[14]),
-        power_max_w: parse_f64(p[15]),
-        pstate: p[16].trim().into(),
-        pcie_gen: p[17].trim().into(),
-        pcie_width: p[18].trim().into(),
-    }
 }
 
 pub fn build() -> gtk::Box {
@@ -204,10 +148,14 @@ pub fn build() -> gtk::Box {
         glib::idle_add_local_once(move || update(&s, &w));
     }
 
-    // Periodic
+    // Periodic (pausado quando window oculto OU página inativa)
     let s = state.clone();
     let w = all_widgets;
+    let page_c = page.clone();
     glib::timeout_add_seconds_local(2, move || {
+        if !crate::app_state::is_window_visible() || !page_c.is_visible() {
+            return glib::ControlFlow::Continue;
+        }
         update(&s, &w);
         glib::ControlFlow::Continue
     });

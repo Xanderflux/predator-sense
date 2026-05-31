@@ -614,3 +614,245 @@ scrollbar slider:hover {
     font-size: 10px;
     animation: pulse-green 2s ease-in-out infinite;
 }
+
+/* === Dashboard === */
+.dashboard-hero {
+    padding: 18px 20px;
+    background-color: rgba(17, 17, 17, 0.75);
+    border: 1px solid rgba(0, 204, 230, 0.25);
+    border-radius: 0;
+}
+
+.dashboard-vendor {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: @cyan;
+    font-weight: 700;
+}
+
+.dashboard-product {
+    font-size: 26px;
+    font-weight: 700;
+    color: @text_main;
+}
+
+.dashboard-summary {
+    font-size: 12px;
+    color: @text_muted;
+    margin-top: 4px;
+}
+
+.spec-card {
+    padding: 14px 16px;
+    background-color: rgba(17, 17, 17, 0.85);
+    border: 1px solid @border_dim;
+    border-radius: 0;
+}
+
+.spec-icon {
+    font-size: 22px;
+    margin-right: 4px;
+}
+
+.spec-title {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: @cyan;
+    font-weight: 700;
+}
+
+.spec-value {
+    font-size: 13px;
+    color: @text_main;
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+/* === Network Page === */
+.net-speed-card {
+    padding: 14px 18px;
+    background-color: rgba(17, 17, 17, 0.9);
+    border: 1px solid rgba(0, 204, 230, 0.25);
+    border-radius: 0;
+}
+
+.net-card-title {
+    font-size: 11px;
+    color: @text_muted;
+    letter-spacing: 1.5px;
+    font-weight: 600;
+}
+
+.net-arrow {
+    font-size: 18px;
+    color: @cyan;
+    font-weight: 700;
+}
+
+.net-speed-value {
+    font-size: 30px;
+    font-weight: 800;
+    color: @text_main;
+}
+
+.net-total-card {
+    padding: 10px 14px;
+    background-color: rgba(17, 17, 17, 0.75);
+    border: 1px solid @border_dim;
+    border-radius: 0;
+}
+
+/* === Usage page === */
+.usage-tab {
+    background-color: rgba(20, 20, 20, 0.7);
+    color: @text_muted;
+    border: 1px solid @border_dim;
+    border-radius: 0;
+    padding: 6px 18px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.usage-tab:hover {
+    background-color: rgba(35, 35, 35, 0.9);
+    color: @text_main;
+}
+
+.usage-tab-active {
+    background-color: rgba(0, 204, 230, 0.18);
+    color: @cyan;
+    border-color: @cyan;
+}
+
+.usage-panel {
+    background-color: rgba(17, 17, 17, 0.88);
+    border: 1px solid @border_dim;
+    border-radius: 0;
+    padding: 12px 14px;
+}
+
+.usage-hero-card {
+    background-color: rgba(17, 17, 17, 0.9);
+    border: 1px solid rgba(0, 204, 230, 0.25);
+    border-radius: 0;
+    padding: 14px 16px;
+}
+
+.usage-hero-title {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: @cyan;
+    font-weight: 700;
+    margin-top: 2px;
+}
+
+.usage-big-number {
+    font-size: 14px;
+    font-weight: 700;
+    color: @text_main;
+}
+
+.usage-stat {
+    padding: 6px 10px;
+    background-color: rgba(10, 10, 12, 0.7);
+    border: 1px solid @border_dim;
+    border-radius: 0;
+}
+
+.usage-stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: @text_main;
+    margin-top: 2px;
+}
+
+.usage-list {
+    background-color: rgba(12, 12, 14, 0.6);
+    border: 1px solid @border_dim;
+    padding: 4px;
+}
+
+.proc-row {
+    background-color: transparent;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.proc-row:hover {
+    background-color: rgba(0, 204, 230, 0.06);
+}
+
+.proc-rank {
+    font-size: 12px;
+    color: @cyan;
+    font-weight: 700;
+    min-width: 22px;
+}
+
+.proc-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: @text_main;
+}
+
+.proc-sub {
+    font-size: 10px;
+    color: @text_muted;
+}
+
+.proc-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: @cyan;
+}
+
+.proc-detail {
+    background-color: rgba(0, 0, 0, 0.35);
+    padding: 8px 10px;
+    font-size: 11px;
+}
+
+.detail-key {
+    font-size: 11px;
+    color: @text_muted;
+    font-weight: 500;
+}
+
+.detail-value {
+    font-size: 11px;
+    color: @text_main;
+}
+
+.usage-disk-card {
+    background-color: rgba(17, 17, 17, 0.9);
+    border: 1px solid @border_dim;
+    border-radius: 0;
+    min-width: 300px;
+    transition: border-color 180ms ease-in-out;
+}
+
+.usage-disk-card:hover {
+    border-color: @cyan;
+}
+
+.disk-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: @text_main;
+}
+
+.disk-pct {
+    font-size: 13px;
+    color: @cyan;
+    font-weight: 600;
+}
+
+.disk-sub {
+    font-size: 11px;
+    color: @text_main;
+}
+
+.disk-sub-dim {
+    font-size: 10px;
+    color: @text_muted;
+}

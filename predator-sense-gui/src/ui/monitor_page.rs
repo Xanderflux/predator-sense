@@ -208,7 +208,11 @@ pub fn build() -> gtk::Box {
         }
     });
 
+    let page_c = page.clone();
     glib::timeout_add_seconds_local(2, move || {
+        if !crate::app_state::is_window_visible() || !page_c.is_visible() {
+            return glib::ControlFlow::Continue;
+        }
         do_update(
             &state_c, &cpu_model_l, &gpu_model_l,
             &cpu_tv, &cpu_tmin, &cpu_tmax,
