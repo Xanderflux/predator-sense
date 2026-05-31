@@ -1,6 +1,11 @@
+pub mod hwmon;
 pub mod rgb;
 pub mod sensors;
 pub mod profile;
 pub mod setup;
 pub mod fan;
 pub mod extras;
+pub mod sysinfo;
+pub mod procs;
+pub mod storage;
+pub mod gpu;

@@ -1,3 +1,4 @@
+mod app_state;
 mod config;
 mod hardware;
 pub mod i18n;
@@ -5,7 +6,7 @@ mod tray;
 mod ui;
 
 use gtk4::prelude::*;
-use gtk4::{self as gtk, gdk};
+use gtk4::{self as gtk, gdk, glib};
 use libadwaita as adw;
 
 const APP_ID: &str = "com.predator.sense";
@@ -39,8 +40,21 @@ fn main() {
 
         // Single instance: if window exists, present it
         if let Some(window) = app.active_window() {
+            app_state::set_window_visible(true);
             window.set_visible(true);
             window.present();
+            // Force a full redraw after the WM finishes mapping the window.
+            // GTK4 + Cinnamon sometimes leaves the surface blank when reshowing
+            // a window that was hidden via set_visible(false).
+            let win = window.clone();
+            glib::idle_add_local_once(move || {
+                win.queue_resize();
+                win.queue_draw();
+                if let Some(child) = win.child() {
+                    child.queue_resize();
+                    child.queue_draw();
+                }
+            });
             return;
         }
 

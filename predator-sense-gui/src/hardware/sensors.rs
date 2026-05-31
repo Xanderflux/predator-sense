@@ -1,5 +1,8 @@
 use std::fs;
-use std::path::Path;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
+use crate::hardware::hwmon;
 
 #[derive(Debug, Clone, Default)]
 pub struct SensorData {
@@ -33,8 +36,12 @@ pub struct GpuInfo {
 }
 
 // Store previous network bytes for delta calculation
-use std::sync::Mutex;
-static PREV_NET: Mutex<Option<(u64, u64, std::time::Instant)>> = Mutex::new(None);
+static PREV_NET: Mutex<Option<(u64, u64, Instant)>> = Mutex::new(None);
+
+// nvidia-smi is a fork+exec — cache its output for 2s so multiple pages reading
+// sensors in parallel don't fork it dozens of times per second.
+static GPU_CACHE: Mutex<Option<(Instant, GpuInfo)>> = Mutex::new(None);
+const GPU_TTL: Duration = Duration::from_millis(1800);
 
 pub fn read_all_sensors() -> SensorData {
     let gpu_info = read_nvidia_gpu_info();
@@ -151,21 +158,40 @@ fn read_cpu_frequency() -> Option<u32> {
 }
 
 fn read_nvidia_gpu_info() -> GpuInfo {
+    // Serve from cache if recent.
+    {
+        let guard = GPU_CACHE.lock().unwrap();
+        if let Some((t, info)) = guard.as_ref() {
+            if t.elapsed() < GPU_TTL {
+                return info.clone();
+            }
+        }
+    }
     let o = std::process::Command::new("nvidia-smi")
         .args(["--query-gpu=name,temperature.gpu,fan.speed,clocks.gr,clocks.mem,utilization.gpu,power.draw",
                "--format=csv,noheader,nounits"]).output();
-    let o = match o { Ok(o) if o.status.success() => o, _ => return GpuInfo::default() };
-    let t = String::from_utf8_lossy(&o.stdout);
-    let p: Vec<&str> = t.trim().split(", ").collect();
-    if p.len() < 7 { return GpuInfo::default(); }
-    GpuInfo {
-        name: p[0].trim().into(), temp: p[1].trim().parse().ok(),
-        fan_speed_pct: p[2].trim().replace("[N/A]", "").parse().ok(),
-        clock_mhz: p[3].trim().replace(" MHz", "").parse().ok(),
-        mem_clock_mhz: p[4].trim().replace(" MHz", "").parse().ok(),
-        utilization_pct: p[5].trim().replace(" %", "").parse().ok(),
-        power_watts: p[6].trim().replace(" W", "").parse().ok(),
-    }
+    let info = match o {
+        Ok(o) if o.status.success() => {
+            let t = String::from_utf8_lossy(&o.stdout);
+            let p: Vec<&str> = t.trim().split(", ").collect();
+            if p.len() < 7 {
+                GpuInfo::default()
+            } else {
+                GpuInfo {
+                    name: p[0].trim().into(),
+                    temp: p[1].trim().parse().ok(),
+                    fan_speed_pct: p[2].trim().replace("[N/A]", "").parse().ok(),
+                    clock_mhz: p[3].trim().replace(" MHz", "").parse().ok(),
+                    mem_clock_mhz: p[4].trim().replace(" MHz", "").parse().ok(),
+                    utilization_pct: p[5].trim().replace(" %", "").parse().ok(),
+                    power_watts: p[6].trim().replace(" W", "").parse().ok(),
+                }
+            }
+        }
+        _ => GpuInfo::default(),
+    };
+    *GPU_CACHE.lock().unwrap() = Some((Instant::now(), info.clone()));
+    info
 }
 
 fn read_cpu_temperature() -> Option<f64> {
@@ -179,40 +205,15 @@ fn read_system_temperature() -> Option<f64> {
 }
 
 fn find_hwmon_label(driver: &str, label: &str) -> Option<f64> {
-    for e in fs::read_dir("/sys/class/hwmon").ok()?.flatten() {
-        let p = e.path();
-        if fs::read_to_string(p.join("name")).ok()?.trim() != driver { continue; }
-        for i in 1..=20 {
-            if let Ok(l) = fs::read_to_string(p.join(format!("temp{}_label", i))) {
-                if l.trim() == label { return read_sysfs_temp(&p.join(format!("temp{}_input", i))); }
-            }
-        }
-    }
-    None
+    hwmon::label_temp(driver, label)
 }
 
 fn find_hwmon_temp_by_name(driver: &str, file: &str) -> Option<f64> {
-    for e in fs::read_dir("/sys/class/hwmon").ok()?.flatten() {
-        let p = e.path();
-        if let Ok(n) = fs::read_to_string(p.join("name")) {
-            if n.trim() == driver { return read_sysfs_temp(&p.join(file)); }
-        }
-    }
-    None
+    hwmon::first_temp(driver, file)
 }
 
 fn find_second_hwmon_temp(driver: &str, file: &str) -> Option<f64> {
-    let mut count = 0;
-    for e in fs::read_dir("/sys/class/hwmon").ok()?.flatten() {
-        let p = e.path();
-        if let Ok(n) = fs::read_to_string(p.join("name")) {
-            if n.trim() == driver {
-                if count == 1 { return read_sysfs_temp(&p.join(file)); }
-                count += 1;
-            }
-        }
-    }
-    None
+    hwmon::nth_temp(driver, file, 1)
 }
 
 fn find_thermal(zone_type: &str) -> Option<f64> {
@@ -220,24 +221,20 @@ fn find_thermal(zone_type: &str) -> Option<f64> {
         let p = e.path();
         if !p.file_name()?.to_str()?.starts_with("thermal_zone") { continue; }
         if let Ok(t) = fs::read_to_string(p.join("type")) {
-            if t.trim() == zone_type { return read_sysfs_temp(&p.join("temp")); }
+            if t.trim() == zone_type { return hwmon::read_temp_milli(&p.join("temp")); }
         }
     }
     None
 }
 
-fn read_sysfs_temp(path: &Path) -> Option<f64> {
-    Some(fs::read_to_string(path).ok()?.trim().parse::<f64>().ok()? / 1000.0)
-}
-
 fn read_fan(file: &str) -> Option<u32> {
+    let idx = hwmon::index();
     for name in &["acer", "facer"] {
-        for e in fs::read_dir("/sys/class/hwmon").ok()?.flatten() {
-            let p = e.path();
-            if let Ok(n) = fs::read_to_string(p.join("name")) {
-                if n.trim() == *name {
-                    if let Ok(c) = fs::read_to_string(p.join(file)) {
-                        if let Ok(v) = c.trim().parse::<u32>() { if v > 0 { return Some(v); } }
+        if let Some(paths) = idx.get(*name) {
+            for p in paths {
+                if let Ok(c) = fs::read_to_string(p.join(file)) {
+                    if let Ok(v) = c.trim().parse::<u32>() {
+                        if v > 0 { return Some(v); }
                     }
                 }
             }
