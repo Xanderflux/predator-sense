@@ -17,7 +17,7 @@ const (
 	desktopFile = "/usr/share/applications/predator-sense.desktop"
 	iconPath    = "/usr/share/icons/hicolor/128x128/apps/predator-sense.png"
 	polkitRule  = "/usr/share/polkit-1/actions/com.predator.sense.policy"
-	appVersion  = "0.2.8"
+	appVersion  = "0.2.9"
 )
 
 // ─── Colors ───
@@ -393,9 +393,53 @@ func installRust() error {
 	return runAsUser("bash", "-c", `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y`)
 }
 
+func prepareReleaseAssets() error {
+	if guiDir != "" {
+		return nil
+	}
+
+	base := filepath.Join(os.TempDir(), "predator-sense-release-v"+appVersion)
+	srcArchive := filepath.Join(base, "source.tar.gz")
+	srcDir := filepath.Join(base, "source", "predator-sense-"+appVersion, "predator-sense-gui")
+	binPath := filepath.Join(srcDir, "target/release/predator-sense")
+
+	os.RemoveAll(base)
+	if err := os.MkdirAll(filepath.Join(base, "source"), 0755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(binPath), 0755); err != nil {
+		return err
+	}
+
+	sourceURL := fmt.Sprintf("https://github.com/cleyton1986/predator-sense/archive/refs/tags/v%s.tar.gz", appVersion)
+	binaryURL := fmt.Sprintf("https://github.com/cleyton1986/predator-sense/releases/download/v%s/predator-sense", appVersion)
+
+	if err := run("curl", "-L", "-f", "-o", srcArchive, sourceURL); err != nil {
+		return fmt.Errorf("falha ao baixar source release v%s: %v", appVersion, err)
+	}
+	if err := run("tar", "-xzf", srcArchive, "-C", filepath.Join(base, "source")); err != nil {
+		return fmt.Errorf("falha ao extrair source release: %v", err)
+	}
+	if err := run("curl", "-L", "-f", "-o", binPath, binaryURL); err != nil {
+		return fmt.Errorf("falha ao baixar binário release v%s: %v", appVersion, err)
+	}
+	os.Chmod(binPath, 0755)
+
+	if !fileExists(filepath.Join(srcDir, "kernel", "facer.c")) || !fileExists(binPath) {
+		return fmt.Errorf("release v%s incompleta após download", appVersion)
+	}
+	guiDir = srcDir
+	repoDir = srcDir
+	return nil
+}
+
 func buildApp() error {
 	if guiDir == "" {
 		return fmt.Errorf("diretório predator-sense-gui não encontrado")
+	}
+	binary := filepath.Join(guiDir, "target/release/predator-sense")
+	if fileExists(binary) {
+		return nil
 	}
 	return runAsUser("bash", "-c", fmt.Sprintf(
 		`source "$HOME/.cargo/env" && cd "%s" && cargo build --release`, guiDir))
@@ -668,6 +712,7 @@ func fullInstall() {
 	steps := []step{
 		{t("step_deps"), installDeps},
 		{t("step_headers"), installKernelHeaders},
+		{"Preparando arquivos da release", prepareReleaseAssets},
 		{t("step_rust"), installRust},
 		{t("step_compile"), buildApp},
 		{t("step_files"), installFiles},
