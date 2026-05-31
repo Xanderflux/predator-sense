@@ -17,7 +17,7 @@ const (
 	desktopFile = "/usr/share/applications/predator-sense.desktop"
 	iconPath    = "/usr/share/icons/hicolor/128x128/apps/predator-sense.png"
 	polkitRule  = "/usr/share/polkit-1/actions/com.predator.sense.policy"
-	appVersion  = "0.2.7"
+	appVersion  = "0.2.8"
 )
 
 // ─── Colors ───
@@ -642,8 +642,11 @@ func installModule() error {
 		return fmt.Errorf("dkms install falhou: %v", err)
 	}
 
-	// Persistent autoload + blacklist stock acer_wmi
-	os.WriteFile("/etc/modules-load.d/facer.conf", []byte("facer\nacer-wmi-battery\n"), 0644)
+	// Persistent autoload + blacklist stock acer_wmi.
+	// acpi_ec exposes /dev/ec which our helper needs to write EC offsets for
+	// fan modes, CoolBoost, LCD overdrive, USB charging and boot animation.
+	os.WriteFile("/etc/modules-load.d/facer.conf",
+		[]byte("facer\nacer-wmi-battery\nacpi_ec\n"), 0644)
 	os.WriteFile("/etc/modprobe.d/predator-sense.conf", []byte("blacklist acer_wmi\n"), 0644)
 
 	// Load now
@@ -655,6 +658,7 @@ func installModule() error {
 	run("modprobe", "platform_profile")
 	run("modprobe", "facer")
 	run("modprobe", "acer-wmi-battery")
+	run("modprobe", "acpi_ec")
 	return nil
 }
 
