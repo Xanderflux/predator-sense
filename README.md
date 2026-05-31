@@ -37,25 +37,38 @@ This application was created for **personal use**, to get the most out of an Ace
 
 ## Screenshots
 
-<p align="center">
-  <img src="assets/psense-1.png" width="800" alt="Home Page">
-  <br><i>Home — Real-time temperature gauges for CPU, GPU, System, SSDs, WiFi and RAM</i>
-</p>
+<p align="center"><b>Dashboard</b> — Laptop photo and full system specs at a glance: CPU, GPU, RAM, storage, network and OS.</p>
+<p align="center"><img src="assets/psense-1.png" width="800" alt="Dashboard"></p>
 
-<p align="center">
-  <img src="assets/psense-2.png" width="800" alt="Lighting Page">
-  <br><i>Lighting — Static per-zone (4 sections) and dynamic RGB keyboard effects</i>
-</p>
+<p align="center"><b>Temperatures</b> — Live gauges for CPU, GPU, system, NVMe drives, WiFi and RAM, all in one screen.</p>
+<p align="center"><img src="assets/psense-2.png" width="800" alt="Temperatures"></p>
 
-<p align="center">
-  <img src="assets/psense-3.png" width="800" alt="GPU Dashboard">
-  <br><i>GPU — NVIDIA dashboard with live graphs, clock speeds, utilization, VRAM and power draw</i>
-</p>
+<p align="center"><b>Usage</b> — CPU, GPU, memory and storage with top processes, animated bars and click-to-expand details (with a CSS-style fire animation on the temperature gauge).</p>
+<p align="center"><img src="assets/psense-3.png" width="800" alt="Usage"></p>
 
-<p align="center">
-  <img src="assets/psense-4.png" width="800" alt="Fan Control">
-  <br><i>Fan Control — Real-time RPM with animated spinning fans, CoolBoost toggle and fan modes</i>
-</p>
+<p align="center"><b>Network</b> — Real-time download/upload graphs with peak tracking and automatic interface detection (Wi-Fi or Ethernet).</p>
+<p align="center"><img src="assets/psense-4.png" width="800" alt="Network"></p>
+
+<p align="center"><b>Lighting</b> — Static per-zone (4 sections) and dynamic RGB keyboard effects (Breathing, Neon, Wave, Shifting, Zoom).</p>
+<p align="center"><img src="assets/psense-5.png" width="800" alt="Lighting"></p>
+
+<p align="center"><b>Modes</b> — Performance profiles: Quiet, Balanced, Performance and Turbo (CPU governor + Intel EPP + GPU power limit).</p>
+<p align="center"><img src="assets/psense-6.png" width="800" alt="Modes"></p>
+
+<p align="center"><b>Fan Control</b> — Live RPM with animated spinning fans, CoolBoost toggle and Auto/Max modes.</p>
+<p align="center"><img src="assets/psense-7.png" width="800" alt="Fan Control"></p>
+
+<p align="center"><b>Battery</b> — Charge percentage, voltage, current, power, cycles, health, manufacturer and 80% charge limit for longevity.</p>
+<p align="center"><img src="assets/psense-8.png" width="800" alt="Battery"></p>
+
+<p align="center"><b>GPU</b> — NVIDIA dashboard with live graphs, clocks, utilization, VRAM, power draw and PCIe info.</p>
+<p align="center"><img src="assets/psense-9.png" width="800" alt="GPU"></p>
+
+<p align="center"><b>Graphs</b> — Detailed CPU and GPU history charts with min/max tracking.</p>
+<p align="center"><img src="assets/psense-10.png" width="800" alt="Graphs"></p>
+
+<p align="center"><b>Settings</b> — Minimize to tray, start on boot, auto-apply profile on start, language preferences.</p>
+<p align="center"><img src="assets/psense-11.png" width="800" alt="Settings"></p>
 
 ---
 
@@ -71,14 +84,19 @@ Inspired by and based on the [acer-predator-turbo-and-rgb-keyboard-linux-module]
 
 | Feature | Description |
 |---------|-------------|
+| **Dashboard** | Laptop photo + complete system specs (CPU, GPU, RAM, storage, network, OS) |
+| **Temperatures** | Live gauges for CPU, GPU, system, NVMe, WiFi and RAM |
+| **Usage** | 4-tab view: CPU / GPU / Memory / Storage with top processes, click-to-expand details and CSS-style fire animation on the temperature gauges |
+| **Network** | Real-time download/upload graphs with peak tracking and auto interface detection |
 | **RGB Keyboard Control** | Static per-zone (4 zones) and dynamic effects (Breathing, Neon, Wave, Shifting, Zoom) |
-| **Temperature Monitoring** | Real-time CPU, GPU, SSD, WiFi, and system temperatures |
-| **GPU Dashboard** | NVIDIA GPU metrics: temperature, utilization, VRAM, clock speeds, power draw with live graphs |
-| **Performance Profiles** | Quiet / Balanced / Performance / Turbo modes (CPU governor + Intel EPP) |
-| **Fan Control** | Fan speed monitoring and mode selection |
-| **RAM & Network** | Memory usage gauge and network speed monitoring |
-| **System Tray** | Minimize to tray with the Predator icon |
+| **Performance Profiles** | Quiet / Balanced / Performance / Turbo modes (CPU governor + Intel EPP + GPU power limit) |
+| **Fan Control** | Live RPM with animated spinning fans, CoolBoost toggle and Auto/Max modes |
+| **Battery** | Charge stats, cycles, health, manufacturer info and 80% charge limit for longevity |
+| **GPU Dashboard** | NVIDIA metrics: temperature, utilization, VRAM, clocks, power draw, PCIe info with live graphs |
+| **Graphs** | Detailed CPU and GPU history charts with min/max tracking |
+| **System Tray** | Minimize to tray with the Predator icon — app stays alive in background |
 | **PredatorSense Key** | Hardware key mapping — the key next to NumLock opens the app |
+| **DKMS** | Kernel modules rebuild automatically across kernel upgrades |
 | **Internationalization** | Automatic English / Portuguese based on system locale |
 | **Gaming UI** | Dark theme with pulsing cyan neon bars, dashed circular gauges, polygon panel borders |
 
@@ -347,28 +365,43 @@ nvidia-smi
 predator-sense-gui/
 ├── kernel/                      # Linux kernel module (WMI driver)
 │   ├── facer.c                  # ACPI/WMI interface to Acer hardware
+│   ├── acer-wmi-battery.c       # Battery charge limit support
 │   ├── Makefile
-│   └── dkms.conf
+│   └── dkms.conf                # DKMS auto-rebuild config
 ├── installer/                   # Go interactive installer (static binary)
-│   ├── main.go
+│   ├── main.go                  # Installer + DKMS registration
 │   └── i18n.go
 ├── src/                         # Rust GTK4 application
 │   ├── main.rs
+│   ├── app_state.rs             # Global window-visibility flag (gates timers)
 │   ├── i18n.rs                  # EN/PT internationalization
 │   ├── config.rs                # User preferences (JSON)
 │   ├── tray.rs                  # System tray (AyatanaAppIndicator)
 │   ├── hardware/
 │   │   ├── rgb.rs               # RGB via /dev/acer-gkbbl-*
-│   │   ├── sensors.rs           # Temps, fans, RAM, network, nvidia-smi
+│   │   ├── hwmon.rs             # /sys/class/hwmon index (cached OnceLock)
+│   │   ├── sensors.rs           # Temps, fans, RAM, network
+│   │   ├── gpu.rs               # nvidia-smi parser with TTL cache
+│   │   ├── procs.rs             # /proc sampler (CPU per-core, memory, process list)
+│   │   ├── storage.rs           # Disk usage via df
+│   │   ├── sysinfo.rs           # DMI + CPU + GPU + OS specs
+│   │   ├── fan.rs               # Fan mode + CoolBoost
+│   │   ├── extras.rs            # Battery limit, LCD overdrive, USB charging, boot anim
 │   │   ├── profile.rs           # CPU governor + EPP + GPU power
 │   │   └── setup.rs             # Kernel module management
 │   └── ui/                      # GTK4 pages (Cairo custom widgets)
-│       ├── window.rs            # Main window, sidebar, neon bars
-│       ├── home_page.rs         # Dashboard with 7 gauges
+│       ├── window.rs            # Main window, sidebar, neon bars, hide-to-tray
+│       ├── dashboard_page.rs    # Hero + system specs
+│       ├── temperatures_page.rs # All temperature gauges
+│       ├── usage_page.rs        # CPU/GPU/Mem/Storage with top processes
+│       ├── network_page.rs      # Download/upload with peak tracking
 │       ├── rgb_page.rs          # Keyboard RGB with visual zones
+│       ├── fan_control_page.rs  # Animated fans + CoolBoost
 │       ├── fan_page.rs          # Performance profiles
+│       ├── battery_page.rs      # Battery stats + charge limit
 │       ├── gpu_page.rs          # NVIDIA GPU dashboard
-│       ├── monitor_page.rs      # Detailed CPU/GPU monitoring
+│       ├── monitor_page.rs      # Detailed CPU/GPU history graphs
+│       ├── setup_page.rs        # Kernel module setup wizard
 │       └── gauge_widget.rs      # Dashed circular gauge widget
 └── resources/
     ├── style.css                # Gaming dark theme
