@@ -10,8 +10,31 @@ import sys
 LOCK_FILE = "/tmp/predator-sense-tray.lock"
 lock_fd = None
 
+def _pid_alive(pid):
+    try:
+        pid = int(pid)
+        if pid <= 0:
+            return False
+        os.kill(pid, 0)
+        return True
+    except (ValueError, OSError, ProcessLookupError):
+        return False
+
 def acquire_lock():
     global lock_fd
+    # Se o lock file aponta pra um PID morto, remove.
+    try:
+        if os.path.exists(LOCK_FILE):
+            with open(LOCK_FILE, 'r') as f:
+                old_pid = f.read().strip()
+            if not _pid_alive(old_pid):
+                try:
+                    os.unlink(LOCK_FILE)
+                except OSError:
+                    pass
+    except Exception as e:
+        print(f"[tray] stale lock check: {e}", file=sys.stderr)
+
     lock_fd = open(LOCK_FILE, 'w')
     try:
         fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -23,12 +46,19 @@ def acquire_lock():
         return False  # Another instance running
 
 if not acquire_lock():
+    print("[tray] outra instância ativa; saindo", file=sys.stderr)
     sys.exit(0)
 
-import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('AyatanaAppIndicator3', '0.1')
-from gi.repository import Gtk, AyatanaAppIndicator3
+print(f"[tray] iniciando PID {os.getpid()}", file=sys.stderr, flush=True)
+
+try:
+    import gi
+    gi.require_version('Gtk', '3.0')
+    gi.require_version('AyatanaAppIndicator3', '0.1')
+    from gi.repository import Gtk, AyatanaAppIndicator3
+except Exception as e:
+    print(f"[tray] ERRO ao carregar gi/Ayatana: {e}", file=sys.stderr, flush=True)
+    sys.exit(1)
 
 APP_ID = "com.predator.sense"
 
@@ -100,6 +130,14 @@ def on_signal(_s, _f):
 signal.signal(signal.SIGTERM, on_signal)
 signal.signal(signal.SIGINT, on_signal)
 
-tray = PredatorTray()
-Gtk.main()
+try:
+    tray = PredatorTray()
+    print("[tray] indicator criado, iniciando Gtk.main()", file=sys.stderr, flush=True)
+    Gtk.main()
+except Exception as e:
+    print(f"[tray] ERRO: {e}", file=sys.stderr, flush=True)
+    import traceback
+    traceback.print_exc(file=sys.stderr)
+    cleanup()
+    sys.exit(1)
 cleanup()

@@ -46,33 +46,36 @@ pub fn check_status() -> ModuleStatus {
     ModuleStatus::NeedsFacerInstall
 }
 
-/// Find the repository root directory (parent of predator-sense-gui)
+/// Find the directory whose `kernel/` subdir holds facer.c.
+/// Returns a path P such that P/kernel/facer.c exists.
 pub fn find_repo_dir() -> Option<PathBuf> {
-    // Try relative to current exe
+    // Try relative to current exe (dev: predator-sense-gui/target/release/)
     if let Ok(exe) = std::env::current_exe() {
-        // exe is in predator-sense-gui/target/release/
-        let gui_dir = exe.parent()?.parent()?.parent()?;
-        let repo_dir = gui_dir.parent()?;
-        if repo_dir.join("kernel").join("facer.c").exists() {
-            return Some(repo_dir.to_path_buf());
+        if let Some(target_release) = exe.parent() {
+            // gui_dir = target/release/.. /.. = predator-sense-gui
+            if let Some(gui_dir) = target_release.parent().and_then(|p| p.parent()) {
+                if gui_dir.join("kernel").join("facer.c").exists() {
+                    return Some(gui_dir.to_path_buf());
+                }
+            }
         }
     }
 
-    // Try known path
-    // Try common install paths
+    // Installed location
     let known = PathBuf::from("/opt/predator-sense");
     if known.join("kernel").join("facer.c").exists() {
         return Some(known);
     }
 
-    // Try current directory parent
+    // Try current directory and parent
     if let Ok(cwd) = std::env::current_dir() {
         if cwd.join("kernel").join("facer.c").exists() {
             return Some(cwd);
         }
-        let parent = cwd.parent()?;
-        if parent.join("kernel").join("facer.c").exists() {
-            return Some(parent.to_path_buf());
+        if let Some(parent) = cwd.parent() {
+            if parent.join("kernel").join("facer.c").exists() {
+                return Some(parent.to_path_buf());
+            }
         }
     }
 
@@ -150,15 +153,17 @@ pub fn compile_module() -> SetupResult {
         }
     };
 
+    let kernel_dir = repo_dir.join("kernel");
+
     // Run make clean first
     let _ = Command::new("make")
         .arg("clean")
-        .current_dir(&repo_dir)
+        .current_dir(&kernel_dir)
         .output();
 
     // Compile
     let output = Command::new("make")
-        .current_dir(&repo_dir)
+        .current_dir(&kernel_dir)
         .output();
 
     match output {

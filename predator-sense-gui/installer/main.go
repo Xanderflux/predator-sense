@@ -17,7 +17,7 @@ const (
 	desktopFile = "/usr/share/applications/predator-sense.desktop"
 	iconPath    = "/usr/share/icons/hicolor/128x128/apps/predator-sense.png"
 	polkitRule  = "/usr/share/polkit-1/actions/com.predator.sense.policy"
-	appVersion  = "0.2.1"
+	appVersion  = "0.2.7"
 )
 
 // ─── Colors ───
@@ -359,13 +359,13 @@ func installDeps() error {
 	if commandExists("apt-get") {
 		return run("apt-get", "install", "-y",
 			"libgtk-4-dev", "libadwaita-1-dev", "pkg-config", "build-essential",
-			"gcc", "make", "libayatana-appindicator3-dev")
+			"gcc", "make", "dkms", "libayatana-appindicator3-dev")
 	} else if commandExists("dnf") {
 		return run("dnf", "install", "-y",
-			"gtk4-devel", "libadwaita-devel", "pkg-config", "gcc", "make")
+			"gtk4-devel", "libadwaita-devel", "pkg-config", "gcc", "make", "dkms")
 	} else if commandExists("pacman") {
 		return run("pacman", "-S", "--noconfirm", "--needed",
-			"gtk4", "libadwaita", "pkgconf", "gcc", "make")
+			"gtk4", "libadwaita", "pkgconf", "gcc", "make", "dkms")
 	}
 	return fmt.Errorf("gerenciador de pacotes não detectado (apt/dnf/pacman)")
 }
@@ -564,109 +564,85 @@ WantedBy=default.target`
 	os.WriteFile(svcPath, []byte(service), 0644)
 	chownToUser(svcPath)
 
-	// Try to enable and start via systemctl --user
-	err1 := runAsUser("systemctl", "--user", "daemon-reload")
-	err2 := runAsUser("systemctl", "--user", "enable", "--now", "predator-sense-hotkey.service")
+	// Remove legacy XDG autostart entry — older installs wrote both this and the
+	// systemd unit, which spawned two listeners that each dispatched Activate on
+	// every keypress and saturated the main loop.
+	os.Remove(filepath.Join(realHome, ".config/autostart/predator-sense-hotkey.desktop"))
 
-	// If systemctl failed (common when running via sudo), start daemon directly as fallback
-	if err1 != nil || err2 != nil {
-		// Start the daemon directly in background
-		cmd := exec.Command("sudo", "-u", realUser, "bash", "-c",
-			"nohup /opt/predator-sense/hotkey-daemon.py > /dev/null 2>&1 &")
-		u, _ := user.Lookup(realUser)
-		uid := "1000"
-		if u != nil { uid = u.Uid }
-		cmd.Env = append(os.Environ(),
-			"HOME="+realHome,
-			"DISPLAY=:0",
-			"XDG_RUNTIME_DIR=/run/user/"+uid,
-		)
-		cmd.Run()
-	}
+	// Kill any orphan daemons before re-enabling the service (avoids duplicate
+	// listeners surviving across reinstalls).
+	run("pkill", "-f", "/opt/predator-sense/hotkey-daemon.py")
 
-	// Also create an autostart entry as extra fallback (works on all DEs)
-	autostartDir := filepath.Join(realHome, ".config/autostart")
-	os.MkdirAll(autostartDir, 0755)
-	autostart := `[Desktop Entry]
-Type=Application
-Name=Predator Sense Hotkey
-Exec=/opt/predator-sense/hotkey-daemon.py
-Hidden=false
-NoDisplay=true
-X-GNOME-Autostart-enabled=true
-Comment=Listen for PredatorSense key`
-	autostartPath := filepath.Join(autostartDir, "predator-sense-hotkey.desktop")
-	os.WriteFile(autostartPath, []byte(autostart), 0644)
-	chownToUser(autostartPath)
-	chownToUser(autostartDir)
+	// Enable + start the systemd user service (single source of truth).
+	// Errors here are non-fatal: if pkexec doesn't carry a session bus address
+	// we can't reach the user systemd, but the unit is on disk and will start
+	// at the next login. We intentionally skip the old `nohup` fallback because
+	// it created root-owned orphan daemons (PPID=1) when sudo dropped privileges
+	// without DBUS, leading to duplicate hotkey listeners.
+	runAsUser("systemctl", "--user", "daemon-reload")
+	runAsUser("systemctl", "--user", "enable", "--now", "predator-sense-hotkey.service")
 
 	return nil
 }
 
 func installTray() error {
-	tray := `#!/usr/bin/env python3
-import fcntl,os,signal,subprocess,sys
-LOCK="/tmp/predator-sense-tray.lock"
-fd=open(LOCK,'w')
-try: fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
-except: sys.exit(0)
-fd.write(str(os.getpid()));fd.flush()
-import gi;gi.require_version('Gtk','3.0');gi.require_version('AyatanaAppIndicator3','0.1')
-from gi.repository import Gtk,AyatanaAppIndicator3
-def icon():
-    d=os.path.join(os.path.dirname(os.path.abspath(__file__)),"resources")
-    p=os.path.join(d,"predator-icon.svg")
-    if os.path.exists(p): return d,"predator-icon"
-    return None,"preferences-system"
-class T:
-    def __init__(self):
-        d,n=icon();self.i=AyatanaAppIndicator3.Indicator.new("predator-sense-tray",n,AyatanaAppIndicator3.IndicatorCategory.HARDWARE)
-        if d:self.i.set_icon_theme_path(d)
-        self.i.set_status(AyatanaAppIndicator3.IndicatorStatus.ACTIVE)
-        m=Gtk.Menu()
-        o=Gtk.MenuItem(label="Abrir");o.connect("activate",lambda _:subprocess.Popen(["gdbus","call","--session","--dest","com.predator.sense","--object-path","/com/predator/sense","--method","org.gtk.Application.Activate","[]"],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL));m.append(o)
-        m.append(Gtk.SeparatorMenuItem())
-        q=Gtk.MenuItem(label="Sair");q.connect("activate",lambda _:(Gtk.main_quit()));m.append(q)
-        m.show_all();self.i.set_menu(m)
-signal.signal(signal.SIGTERM,lambda s,f:Gtk.main_quit())
-T();Gtk.main()
-try:fcntl.flock(fd,fcntl.LOCK_UN);fd.close();os.unlink(LOCK)
-except:pass`
-	os.WriteFile(installDir+"/tray_helper.py", []byte(tray), 0755)
+	src := filepath.Join(guiDir, "resources", "tray_helper.py")
+	dst := installDir + "/tray_helper.py"
+	if !fileExists(src) {
+		return fmt.Errorf("tray_helper.py não encontrado em %s", src)
+	}
+	if err := copyFile(src, dst); err != nil {
+		return err
+	}
+	os.Chmod(dst, 0755)
 	return nil
 }
 
+const dkmsModule = "facer"
+const dkmsVersion = "0.2"
+
 func installModule() error {
-	if isModuleLoaded() {
-		return nil
-	}
 	if repoDir == "" || !fileExists(filepath.Join(repoDir, "kernel/facer.c")) {
 		return fmt.Errorf("código fonte do módulo não encontrado")
 	}
+	if !commandExists("dkms") {
+		return fmt.Errorf("dkms não instalado (deveria ter sido instalado em '%s')", t("step_deps"))
+	}
 
-	kernelDir := filepath.Join(repoDir, "kernel")
-	koPath := filepath.Join(kernelDir, "facer.ko")
-	if !fileExists(koPath) {
-		runInDir(kernelDir, "make", "clean")
-		if err := runInDir(kernelDir, "make"); err != nil {
-			return fmt.Errorf("compilation failed: %v", err)
+	srcDir := fmt.Sprintf("/usr/src/%s-%s", dkmsModule, dkmsVersion)
+
+	// Sync sources into /usr/src/<module>-<version>/. Remove any prior copy so
+	// stale files from an older release don't leak into the new build.
+	run("dkms", "remove", "-m", dkmsModule, "-v", dkmsVersion, "--all")
+	os.RemoveAll(srcDir)
+	os.MkdirAll(srcDir, 0755)
+
+	srcs, _ := filepath.Glob(filepath.Join(repoDir, "kernel/*"))
+	for _, s := range srcs {
+		base := filepath.Base(s)
+		// Skip prior build artifacts
+		if strings.HasSuffix(base, ".o") || strings.HasSuffix(base, ".ko") ||
+			strings.HasSuffix(base, ".mod") || strings.HasSuffix(base, ".mod.c") ||
+			strings.HasSuffix(base, ".mod.o") || strings.HasPrefix(base, ".") ||
+			base == "modules.order" || base == "Module.symvers" {
+			continue
 		}
+		copyFile(s, filepath.Join(srcDir, base))
 	}
 
-	// Make module persistent across reboots
-	uname, _ := cmdOutput("uname", "-r")
-	kernel := strings.TrimSpace(uname)
-	extraDir := "/lib/modules/" + kernel + "/extra"
-	os.MkdirAll(extraDir, 0755)
-	copyFile(koPath, filepath.Join(extraDir, "facer.ko"))
-
-	// Also install acer-wmi-battery module
-	batKo := filepath.Join(kernelDir, "acer-wmi-battery.ko")
-	if fileExists(batKo) {
-		copyFile(batKo, filepath.Join(extraDir, "acer-wmi-battery.ko"))
+	// Register, build, install for the running kernel. AUTOINSTALL=yes in
+	// dkms.conf makes future kernel upgrades rebuild this module automatically.
+	if err := run("dkms", "add", "-m", dkmsModule, "-v", dkmsVersion); err != nil {
+		return fmt.Errorf("dkms add falhou: %v", err)
+	}
+	if err := run("dkms", "build", "-m", dkmsModule, "-v", dkmsVersion); err != nil {
+		return fmt.Errorf("dkms build falhou: %v", err)
+	}
+	if err := run("dkms", "install", "-m", dkmsModule, "-v", dkmsVersion, "--force"); err != nil {
+		return fmt.Errorf("dkms install falhou: %v", err)
 	}
 
-	run("depmod", "-a")
+	// Persistent autoload + blacklist stock acer_wmi
 	os.WriteFile("/etc/modules-load.d/facer.conf", []byte("facer\nacer-wmi-battery\n"), 0644)
 	os.WriteFile("/etc/modprobe.d/predator-sense.conf", []byte("blacklist acer_wmi\n"), 0644)
 
@@ -677,13 +653,8 @@ func installModule() error {
 	run("modprobe", "sparse-keymap")
 	run("modprobe", "video")
 	run("modprobe", "platform_profile")
-
-	if fileExists(koPath) {
-		run("insmod", koPath)
-	}
-	if fileExists(batKo) {
-		run("insmod", batKo)
-	}
+	run("modprobe", "facer")
+	run("modprobe", "acer-wmi-battery")
 	return nil
 }
 
@@ -733,6 +704,14 @@ func uninstall() {
 	os.Remove(filepath.Join(realHome, ".config/systemd/user/predator-sense-hotkey.service"))
 	os.Remove(filepath.Join(realHome, ".config/autostart/predator-sense-hotkey.desktop"))
 	runAsUser("systemctl", "--user", "daemon-reload")
+
+	// Unregister DKMS module so kernel upgrades stop rebuilding it
+	if commandExists("dkms") {
+		run("dkms", "remove", "-m", dkmsModule, "-v", dkmsVersion, "--all")
+		os.RemoveAll(fmt.Sprintf("/usr/src/%s-%s", dkmsModule, dkmsVersion))
+	}
+	os.Remove("/etc/modules-load.d/facer.conf")
+	os.Remove("/etc/modprobe.d/predator-sense.conf")
 
 	os.RemoveAll(installDir)
 	os.Remove(desktopFile)
