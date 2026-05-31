@@ -363,9 +363,10 @@ nvidia-smi
 
 ```
 predator-sense-gui/
-├── kernel/                      # Linux kernel module (WMI driver)
+├── kernel/                      # Linux kernel modules (DKMS-managed)
 │   ├── facer.c                  # ACPI/WMI interface to Acer hardware
 │   ├── acer-wmi-battery.c       # Battery charge limit support
+│   ├── acpi_ec.c                # Raw EC access via /dev/ec (from MusiKid/acpi_ec)
 │   ├── Makefile
 │   └── dkms.conf                # DKMS auto-rebuild config
 ├── installer/                   # Go interactive installer (static binary)
@@ -413,7 +414,8 @@ predator-sense-gui/
 
 ## Credits & Acknowledgments
 
-- **Kernel module** based on the [acer-predator-turbo-and-rgb-keyboard-linux-module](https://github.com/JafarAkhondali/acer-predator-turbo-and-rgb-keyboard-linux-module) project by [JafarAkhondali](https://github.com/JafarAkhondali) and [all contributors](https://github.com/JafarAkhondali/acer-predator-turbo-and-rgb-keyboard-linux-module/graphs/contributors)
+- **Kernel module `facer`** based on the [acer-predator-turbo-and-rgb-keyboard-linux-module](https://github.com/JafarAkhondali/acer-predator-turbo-and-rgb-keyboard-linux-module) project by [JafarAkhondali](https://github.com/JafarAkhondali) and [all contributors](https://github.com/JafarAkhondali/acer-predator-turbo-and-rgb-keyboard-linux-module/graphs/contributors)
+- **Kernel module `acpi_ec`** by [Sayafdine Said (MusiKid)](https://github.com/MusiKid/acpi_ec) — exposes `/dev/ec` for raw EC read/write. Used by the helper to set fan modes, CoolBoost, LCD overdrive, USB charging and boot animation.
 - **GUI Application** built with [Rust](https://www.rust-lang.org/) + [GTK4](https://gtk.org/) + [libadwaita](https://gnome.pages.gitlab.gnome.org/libadwaita/)
 - **Installer** built with [Go](https://go.dev/)
 
