@@ -17,7 +17,7 @@ const (
 	desktopFile = "/usr/share/applications/predator-sense.desktop"
 	iconPath    = "/usr/share/icons/hicolor/128x128/apps/predator-sense.png"
 	polkitRule  = "/usr/share/polkit-1/actions/com.predator.sense.policy"
-	appVersion  = "0.2.9"
+	appVersion  = "0.2.10"
 )
 
 // ─── Colors ───
@@ -121,6 +121,25 @@ func detectPaths() {
 
 func detectUser() {
 	realUser = os.Getenv("SUDO_USER")
+	if realUser == "" {
+		if pkexecUID := os.Getenv("PKEXEC_UID"); pkexecUID != "" {
+			if u, err := user.LookupId(pkexecUID); err == nil {
+				realUser = u.Username
+				realHome = u.HomeDir
+				return
+			}
+		}
+	}
+	if realUser == "" || realUser == "root" {
+		if logname := os.Getenv("LOGNAME"); logname != "" && logname != "root" {
+			realUser = logname
+		}
+	}
+	if realUser == "" || realUser == "root" {
+		if out, err := exec.Command("bash", "-c", "getent passwd 1000 | cut -d: -f1").Output(); err == nil {
+			realUser = strings.TrimSpace(string(out))
+		}
+	}
 	if realUser == "" {
 		realUser = os.Getenv("USER")
 	}
