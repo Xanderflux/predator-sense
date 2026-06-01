@@ -17,7 +17,7 @@ const (
 	desktopFile = "/usr/share/applications/predator-sense.desktop"
 	iconPath    = "/usr/share/icons/hicolor/128x128/apps/predator-sense.png"
 	polkitRule  = "/usr/share/polkit-1/actions/com.predator.sense.policy"
-	appVersion  = "0.2.10"
+	appVersion  = "0.2.11"
 )
 
 // ─── Colors ───
@@ -953,14 +953,17 @@ func runAsUser(name string, args ...string) error {
 		uid = u.Uid
 	}
 
-	cmd := exec.Command("sudo", append([]string{"-u", realUser}, append([]string{name}, args...)...)...)
-	cmd.Env = append(os.Environ(),
-		"HOME="+realHome,
-		"USER="+realUser,
+	envArgs := []string{
+		"-u", realUser,
+		"env",
+		"HOME=" + realHome,
+		"USER=" + realUser,
 		"DISPLAY=:0",
-		"XDG_RUNTIME_DIR=/run/user/"+uid,
-		"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/"+uid+"/bus",
-	)
+		"XDG_RUNTIME_DIR=/run/user/" + uid,
+		"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/" + uid + "/bus",
+		name,
+	}
+	cmd := exec.Command("sudo", append(envArgs, args...)...)
 	return cmd.Run()
 }
 
