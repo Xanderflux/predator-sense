@@ -24,6 +24,22 @@ pub fn build() -> gtk::Box {
     page.set_margin_start(20);
     page.set_margin_end(20);
 
+    // No NVIDIA GPU detected: show a clear note instead of empty/zero gauges.
+    if !crate::hardware::capabilities::get().nvidia_gpu {
+        let title = gtk::Label::new(Some("GPU"));
+        title.add_css_class("section-title");
+        title.set_halign(gtk::Align::Start);
+        title.set_margin_top(20);
+        page.append(&title);
+        let note = gtk::Label::new(Some(crate::i18n::t("gpu_none_note")));
+        note.add_css_class("info-note");
+        note.set_halign(gtk::Align::Start);
+        note.set_wrap(true);
+        note.set_margin_top(8);
+        page.append(&note);
+        return page;
+    }
+
     let state = Rc::new(RefCell::new(GpuState {
         temp_history: VecDeque::with_capacity(HISTORY),
         util_history: VecDeque::with_capacity(HISTORY),

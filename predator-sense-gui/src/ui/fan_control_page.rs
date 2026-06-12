@@ -13,23 +13,27 @@ pub fn build() -> gtk::Box {
     page.set_margin_start(20);
     page.set_margin_end(20);
 
-    // Header
+    let caps = crate::hardware::capabilities::get();
+
+    // Header — CoolBoost only where EC access (/dev/ec) is available.
     let top = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    let cb_label = gtk::Label::new(Some("CoolBoost™"));
-    cb_label.add_css_class("info-card-value");
-    let cb_switch = gtk::Switch::new();
-    cb_switch.set_active(fan::get_coolboost());
-    cb_switch.set_valign(gtk::Align::Center);
-    cb_switch.connect_state_set(move |_, active| {
-        let _ = fan::set_coolboost(active);
-        glib::Propagation::Proceed
-    });
+    if caps.ec {
+        let cb_label = gtk::Label::new(Some("CoolBoost™"));
+        cb_label.add_css_class("info-card-value");
+        let cb_switch = gtk::Switch::new();
+        cb_switch.set_active(fan::get_coolboost());
+        cb_switch.set_valign(gtk::Align::Center);
+        cb_switch.connect_state_set(move |_, active| {
+            let _ = fan::set_coolboost(active);
+            glib::Propagation::Proceed
+        });
+        top.append(&cb_label);
+        top.append(&cb_switch);
+    }
     let aero = gtk::Label::new(Some("AeroBlade™ 3D Fan"));
     aero.add_css_class("fan-rpm");
     aero.set_halign(gtk::Align::End);
     aero.set_hexpand(true);
-    top.append(&cb_label);
-    top.append(&cb_switch);
     top.append(&aero);
     page.append(&top);
 
@@ -47,11 +51,15 @@ pub fn build() -> gtk::Box {
     modes_box.set_halign(gtk::Align::Center);
     modes_box.set_margin_top(6);
 
-    let mode_names = [
+    // Capability-aware: the manual/custom fan control only exists where the
+    // kernel exposes per-fan PWM. On models without it we offer Auto/Max only.
+    let mut mode_names: Vec<(&str, &str)> = vec![
         (crate::i18n::t("automatic"), "auto"),
         (crate::i18n::t("max"), "max"),
-        (crate::i18n::t("custom"), "custom"),
     ];
+    if caps.fan_pwm {
+        mode_names.push((crate::i18n::t("custom"), "custom"));
+    }
 
     let active_mode: Rc<RefCell<String>> = Rc::new(RefCell::new("auto".into()));
 
@@ -206,6 +214,18 @@ pub fn build() -> gtk::Box {
     page.append(&modes_box);
     page.append(&custom_box);
     page.append(&status_label);
+
+    // On models without per-fan PWM, explain (no error) that only firmware
+    // modes are available.
+    if !caps.fan_pwm {
+        let note = gtk::Label::new(Some(crate::i18n::t("fan_no_pwm_note")));
+        note.add_css_class("info-note");
+        note.set_halign(gtk::Align::Center);
+        note.set_justify(gtk::Justification::Center);
+        note.set_wrap(true);
+        note.set_margin_top(4);
+        page.append(&note);
+    }
 
     // Animated fan gauges with real RPM
     let fans_box = gtk::Box::new(gtk::Orientation::Horizontal, 50);

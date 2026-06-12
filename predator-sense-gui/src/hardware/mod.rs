@@ -1,3 +1,4 @@
+pub mod capabilities;
 pub mod hwmon;
 pub mod rgb;
 pub mod sensors;

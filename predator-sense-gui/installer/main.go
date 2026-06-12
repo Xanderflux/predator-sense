@@ -724,11 +724,12 @@ func installModule() error {
 		return fmt.Errorf("dkms install falhou: %v", err)
 	}
 
-	// Persistent autoload + blacklist stock acer_wmi.
-	// acpi_ec exposes /dev/ec which our helper needs to write EC offsets for
-	// fan modes, CoolBoost, LCD overdrive, USB charging and boot animation.
+	// Persistent autoload at boot + blacklist stock acer_wmi.
+	// Loads facer's dependencies explicitly (wmi, sparse-keymap, video,
+	// platform_profile) so the stack comes up even if dependency autoloading
+	// is unavailable, plus acpi_ec for /dev/ec (CoolBoost / LCD / USB / boot anim).
 	os.WriteFile("/etc/modules-load.d/facer.conf",
-		[]byte("facer\nacer-wmi-battery\nacpi_ec\n"), 0644)
+		[]byte("wmi\nsparse-keymap\nvideo\nplatform_profile\nfacer\nacer-wmi-battery\nacpi_ec\n"), 0644)
 	os.WriteFile("/etc/modprobe.d/predator-sense.conf", []byte("blacklist acer_wmi\n"), 0644)
 
 	// Load now

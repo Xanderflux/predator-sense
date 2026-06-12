@@ -674,53 +674,73 @@ fn build_settings_page(_app: &adw::Application) -> gtk::ScrolledWindow {
     hw_title.set_margin_top(20);
     page.append(&hw_title);
 
+    // Hardware extras are capability-gated: shown only when the machine
+    // actually exposes them. Battery limit needs sysfs threshold support;
+    // LCD overdrive / boot animation / USB charging need EC access (/dev/ec).
+    let caps = crate::hardware::capabilities::get();
+    let mut hw_any = false;
+
     // Battery limiter
-    let bat_row = create_setting_row(t("bat_limiter"), t("bat_limiter_desc"));
-    let bat_switch = gtk::Switch::new();
-    bat_switch.set_active(crate::hardware::extras::get_battery_limiter());
-    bat_switch.set_valign(gtk::Align::Center);
-    bat_switch.connect_state_set(|_, active| {
-        let _ = crate::hardware::extras::set_battery_limiter(active);
-        glib::Propagation::Proceed
-    });
-    bat_row.append(&bat_switch);
-    page.append(&bat_row);
+    if caps.battery_limit {
+        hw_any = true;
+        let bat_row = create_setting_row(t("bat_limiter"), t("bat_limiter_desc"));
+        let bat_switch = gtk::Switch::new();
+        bat_switch.set_active(crate::hardware::extras::get_battery_limiter());
+        bat_switch.set_valign(gtk::Align::Center);
+        bat_switch.connect_state_set(|_, active| {
+            let _ = crate::hardware::extras::set_battery_limiter(active);
+            glib::Propagation::Proceed
+        });
+        bat_row.append(&bat_switch);
+        page.append(&bat_row);
+    }
 
-    // LCD Overdrive
-    let lcd_row = create_setting_row(t("lcd_overdrive"), t("lcd_overdrive_desc"));
-    let lcd_switch = gtk::Switch::new();
-    lcd_switch.set_active(crate::hardware::extras::get_lcd_overdrive());
-    lcd_switch.set_valign(gtk::Align::Center);
-    lcd_switch.connect_state_set(|_, active| {
-        let _ = crate::hardware::extras::set_lcd_overdrive(active);
-        glib::Propagation::Proceed
-    });
-    lcd_row.append(&lcd_switch);
-    page.append(&lcd_row);
+    if caps.ec {
+        hw_any = true;
+        // LCD Overdrive
+        let lcd_row = create_setting_row(t("lcd_overdrive"), t("lcd_overdrive_desc"));
+        let lcd_switch = gtk::Switch::new();
+        lcd_switch.set_active(crate::hardware::extras::get_lcd_overdrive());
+        lcd_switch.set_valign(gtk::Align::Center);
+        lcd_switch.connect_state_set(|_, active| {
+            let _ = crate::hardware::extras::set_lcd_overdrive(active);
+            glib::Propagation::Proceed
+        });
+        lcd_row.append(&lcd_switch);
+        page.append(&lcd_row);
 
-    // Boot animation
-    let boot_row = create_setting_row(t("boot_anim"), t("boot_anim_desc"));
-    let boot_switch = gtk::Switch::new();
-    boot_switch.set_active(crate::hardware::extras::get_boot_animation());
-    boot_switch.set_valign(gtk::Align::Center);
-    boot_switch.connect_state_set(|_, active| {
-        let _ = crate::hardware::extras::set_boot_animation(active);
-        glib::Propagation::Proceed
-    });
-    boot_row.append(&boot_switch);
-    page.append(&boot_row);
+        // Boot animation
+        let boot_row = create_setting_row(t("boot_anim"), t("boot_anim_desc"));
+        let boot_switch = gtk::Switch::new();
+        boot_switch.set_active(crate::hardware::extras::get_boot_animation());
+        boot_switch.set_valign(gtk::Align::Center);
+        boot_switch.connect_state_set(|_, active| {
+            let _ = crate::hardware::extras::set_boot_animation(active);
+            glib::Propagation::Proceed
+        });
+        boot_row.append(&boot_switch);
+        page.append(&boot_row);
 
-    // USB charging
-    let usb_row = create_setting_row(t("usb_charge"), t("usb_charge_desc"));
-    let usb_switch = gtk::Switch::new();
-    usb_switch.set_active(crate::hardware::extras::get_usb_charging());
-    usb_switch.set_valign(gtk::Align::Center);
-    usb_switch.connect_state_set(|_, active| {
-        let _ = crate::hardware::extras::set_usb_charging(active);
-        glib::Propagation::Proceed
-    });
-    usb_row.append(&usb_switch);
-    page.append(&usb_row);
+        // USB charging
+        let usb_row = create_setting_row(t("usb_charge"), t("usb_charge_desc"));
+        let usb_switch = gtk::Switch::new();
+        usb_switch.set_active(crate::hardware::extras::get_usb_charging());
+        usb_switch.set_valign(gtk::Align::Center);
+        usb_switch.connect_state_set(|_, active| {
+            let _ = crate::hardware::extras::set_usb_charging(active);
+            glib::Propagation::Proceed
+        });
+        usb_row.append(&usb_switch);
+        page.append(&usb_row);
+    }
+
+    if !hw_any {
+        let note = gtk::Label::new(Some(t("hw_extras_none")));
+        note.add_css_class("info-note");
+        note.set_halign(gtk::Align::Start);
+        note.set_wrap(true);
+        page.append(&note);
+    }
 
     // === Module Section ===
     let mod_title = gtk::Label::new(Some(t("module_kernel")));
