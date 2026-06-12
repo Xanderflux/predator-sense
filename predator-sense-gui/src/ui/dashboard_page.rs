@@ -144,8 +144,57 @@ pub fn build() -> gtk::ScrolledWindow {
 
     page.append(&grid);
 
+    // === Supported features (auto-detected for this model) ===
+    let caps = crate::hardware::capabilities::get();
+    let feat_title = gtk::Label::new(Some(crate::i18n::t("dashboard_features")));
+    feat_title.add_css_class("section-title");
+    feat_title.set_halign(gtk::Align::Start);
+    feat_title.set_margin_top(14);
+    page.append(&feat_title);
+
+    let feat_flow = gtk::FlowBox::new();
+    feat_flow.set_selection_mode(gtk::SelectionMode::None);
+    feat_flow.set_max_children_per_line(4);
+    feat_flow.set_min_children_per_line(2);
+    feat_flow.set_column_spacing(8);
+    feat_flow.set_row_spacing(8);
+    feat_flow.set_margin_top(6);
+    feat_flow.set_homogeneous(true);
+
+    let features: [(&str, bool); 7] = [
+        (crate::i18n::t("feat_rgb"), caps.rgb),
+        (crate::i18n::t("feat_fan_rpm"), caps.fan_rpm),
+        (crate::i18n::t("feat_fan_pwm"), caps.fan_pwm),
+        (crate::i18n::t("feat_profiles"), caps.platform_profile),
+        (crate::i18n::t("feat_ec"), caps.ec),
+        (crate::i18n::t("feat_gpu"), caps.nvidia_gpu),
+        (crate::i18n::t("feat_battery"), caps.battery_limit),
+    ];
+    for (name, ok) in features {
+        feat_flow.insert(&make_feature_chip(name, ok), -1);
+    }
+    page.append(&feat_flow);
+
     scroll.set_child(Some(&page));
     scroll
+}
+
+fn make_feature_chip(name: &str, supported: bool) -> gtk::Box {
+    let chip = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    chip.add_css_class("feature-chip");
+    chip.add_css_class(if supported { "feature-on" } else { "feature-off" });
+    chip.set_margin_top(2);
+    chip.set_margin_bottom(2);
+    let icon = gtk::Label::new(Some(if supported { "✓" } else { "—" }));
+    icon.add_css_class("feature-icon");
+    let label = gtk::Label::new(Some(name));
+    label.add_css_class("feature-label");
+    label.set_halign(gtk::Align::Start);
+    label.set_hexpand(true);
+    label.set_xalign(0.0);
+    chip.append(&icon);
+    chip.append(&label);
+    chip
 }
 
 fn build_short_summary(info: &SystemInfo) -> String {

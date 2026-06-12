@@ -154,6 +154,20 @@ fn build_with_setup(app: &adw::Application, window: &gtk::ApplicationWindow, _he
 fn build_main_ui(app: &adw::Application, window: &gtk::ApplicationWindow) {
     let main_content = build_main_content(app, window);
 
+    // Background watcher: critical-temperature alerts + auto power profile.
+    // Runs every 5s regardless of window visibility (works in the tray too).
+    {
+        let cfg = config::load_app_config();
+        crate::hardware::alerts::set_enabled(cfg.temp_alerts);
+        crate::hardware::power_profile::set_auto(cfg.auto_profile_ac);
+        glib::timeout_add_seconds_local(5, || {
+            let (cpu, gpu) = sensors::read_critical_temps();
+            crate::hardware::alerts::check(cpu, gpu);
+            crate::hardware::power_profile::check();
+            glib::ControlFlow::Continue
+        });
+    }
+
     // Wrap in overlay with neon edge bars drawn on top
     let root_overlay = gtk::Overlay::new();
     root_overlay.set_child(Some(&main_content));
@@ -665,6 +679,36 @@ fn build_settings_page(_app: &adw::Application) -> gtk::ScrolledWindow {
     });
     boot_row.append(&boot_switch);
     page.append(&boot_row);
+
+    // Critical temperature alerts
+    let alert_row = create_setting_row(t("temp_alert_setting"), t("temp_alert_desc"));
+    let alert_switch = gtk::Switch::new();
+    alert_switch.set_active(cfg.temp_alerts);
+    alert_switch.set_valign(gtk::Align::Center);
+    alert_switch.connect_state_set(move |_, active| {
+        let mut c = config::load_app_config();
+        c.temp_alerts = active;
+        let _ = config::save_app_config(&c);
+        crate::hardware::alerts::set_enabled(active);
+        glib::Propagation::Proceed
+    });
+    alert_row.append(&alert_switch);
+    page.append(&alert_row);
+
+    // Auto performance profile by power source (AC vs battery)
+    let acp_row = create_setting_row(t("auto_profile_ac"), t("auto_profile_ac_desc"));
+    let acp_switch = gtk::Switch::new();
+    acp_switch.set_active(cfg.auto_profile_ac);
+    acp_switch.set_valign(gtk::Align::Center);
+    acp_switch.connect_state_set(move |_, active| {
+        let mut c = config::load_app_config();
+        c.auto_profile_ac = active;
+        let _ = config::save_app_config(&c);
+        crate::hardware::power_profile::set_auto(active);
+        glib::Propagation::Proceed
+    });
+    acp_row.append(&acp_switch);
+    page.append(&acp_row);
 
     // Module status
     // === Hardware Settings Section ===

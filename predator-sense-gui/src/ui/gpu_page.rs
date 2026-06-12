@@ -131,6 +131,53 @@ pub fn build() -> gtk::Box {
     stats_row.append(&vbios_w.0);
     page.append(&stats_row);
 
+    // === GPU power limit (TGP) slider ===
+    {
+        let m0 = read_gpu_metrics();
+        let min_w = if m0.power_min_w > 0.0 { m0.power_min_w } else { 20.0 };
+        let max_w = if m0.power_max_w > min_w { m0.power_max_w } else { min_w + 50.0 };
+        let cur_w = if m0.power_limit_w > 0.0 { m0.power_limit_w } else { max_w };
+
+        let pl_box = gtk::Box::new(gtk::Orientation::Vertical, 4);
+        pl_box.add_css_class("usage-panel");
+        pl_box.set_margin_top(10);
+        let pl_head = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        let pl_title = gtk::Label::new(Some(crate::i18n::t("gpu_power_limit")));
+        pl_title.add_css_class("section-title");
+        pl_title.set_hexpand(true);
+        pl_title.set_halign(gtk::Align::Start);
+        let pl_value = gtk::Label::new(Some(&format!("{:.0} W", cur_w)));
+        pl_value.add_css_class("usage-big-number");
+        pl_head.append(&pl_title);
+        pl_head.append(&pl_value);
+        pl_box.append(&pl_head);
+
+        let pl_scale = gtk::Scale::with_range(gtk::Orientation::Horizontal, min_w, max_w, 5.0);
+        pl_scale.set_value(cur_w);
+        pl_scale.set_hexpand(true);
+        pl_scale.add_css_class("accent-scale");
+        {
+            let v = pl_value.clone();
+            pl_scale.connect_value_changed(move |s| v.set_text(&format!("{:.0} W", s.value())));
+        }
+        // Apply when the user releases the slider.
+        let gesture = gtk::GestureClick::new();
+        {
+            let s = pl_scale.clone();
+            let v = pl_value.clone();
+            gesture.connect_released(move |_, _, _, _| {
+                let w = s.value().round() as u32;
+                match crate::hardware::gpu::set_power_limit(w) {
+                    Ok(()) => v.set_text(&format!("{} W ✓", w)),
+                    Err(e) => v.set_text(&format!("⚠ {}", e)),
+                }
+            });
+        }
+        pl_scale.add_controller(gesture);
+        pl_box.append(&pl_scale);
+        page.append(&pl_box);
+    }
+
     // === Graph draw functions ===
     {
         let s = state.clone();

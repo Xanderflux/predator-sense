@@ -1,5 +1,7 @@
+pub mod alerts;
 pub mod capabilities;
 pub mod hwmon;
+pub mod power_profile;
 pub mod rgb;
 pub mod sensors;
 pub mod profile;

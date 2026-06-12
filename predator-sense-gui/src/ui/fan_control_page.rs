@@ -215,9 +215,42 @@ pub fn build() -> gtk::Box {
     page.append(&custom_box);
     page.append(&status_label);
 
-    // On models without per-fan PWM, explain (no error) that only firmware
-    // modes are available.
-    if !caps.fan_pwm {
+    // Auto fan curve: only where PWM exists. A timer maps CPU temperature to a
+    // target fan speed, so the fans ramp up automatically under load.
+    if caps.fan_pwm {
+        let curve_box = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        curve_box.set_halign(gtk::Align::Center);
+        curve_box.set_margin_top(6);
+        let curve_lbl = gtk::Label::new(Some(crate::i18n::t("fan_auto_curve")));
+        curve_lbl.add_css_class("control-label");
+        let curve_switch = gtk::Switch::new();
+        curve_switch.set_valign(gtk::Align::Center);
+        curve_box.append(&curve_lbl);
+        curve_box.append(&curve_switch);
+        page.append(&curve_box);
+
+        let curve_on = Rc::new(RefCell::new(false));
+        {
+            let on = curve_on.clone();
+            curve_switch.connect_state_set(move |_, active| {
+                *on.borrow_mut() = active;
+                glib::Propagation::Proceed
+            });
+        }
+        // Apply curve every 3s while enabled.
+        let on = curve_on.clone();
+        glib::timeout_add_seconds_local(3, move || {
+            if *on.borrow() {
+                let (cpu, _gpu) = sensors::read_critical_temps();
+                if let Some(t) = cpu {
+                    let pct = fan_curve_pct(t);
+                    let _ = fan::set_pwm_percent(pct, pct);
+                }
+            }
+            glib::ControlFlow::Continue
+        });
+    } else {
+        // No per-fan PWM: explain (no error) that only firmware modes exist.
         let note = gtk::Label::new(Some(crate::i18n::t("fan_no_pwm_note")));
         note.add_css_class("info-note");
         note.set_halign(gtk::Align::Center);
@@ -389,4 +422,16 @@ fn draw_animated_fan(cr: &gtk4::cairo::Context, w: f64, h: f64, rotation: f64, r
     let ext3 = cr.text_extents(&t).unwrap();
     cr.move_to(cx - ext3.width() / 2.0, cy + outer_r + 16.0);
     let _ = cr.show_text(&t);
+}
+
+/// Simple CPU-temperature to fan-speed curve (percent) for the auto mode.
+fn fan_curve_pct(temp_c: f64) -> u8 {
+    match temp_c {
+        t if t < 45.0 => 25,
+        t if t < 55.0 => 35,
+        t if t < 65.0 => 50,
+        t if t < 75.0 => 65,
+        t if t < 85.0 => 80,
+        _ => 100,
+    }
 }

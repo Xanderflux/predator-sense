@@ -200,6 +200,14 @@ fn read_cpu_temperature() -> Option<f64> {
         .or_else(|| find_hwmon_temp_by_name("k10temp", "temp1_input"))
 }
 
+/// Lightweight CPU/GPU temperature read for background alerts.
+/// CPU is from hwmon (cheap); GPU reuses the cached nvidia-smi result.
+pub fn read_critical_temps() -> (Option<f64>, Option<f64>) {
+    let cpu = read_cpu_temperature();
+    let gpu = read_nvidia_gpu_info().temp;
+    (cpu, gpu)
+}
+
 fn read_system_temperature() -> Option<f64> {
     find_hwmon_temp_by_name("acpitz", "temp1_input").or_else(|| find_thermal("acpitz"))
 }

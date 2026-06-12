@@ -856,3 +856,13 @@ scrollbar slider:hover {
     font-size: 10px;
     color: @text_muted;
 }
+
+/* Feature chips (dashboard capabilities) */
+.feature-chip { padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
+.feature-chip.feature-on { border-color: rgba(0,200,160,0.4); }
+.feature-chip.feature-off { opacity: 0.45; }
+.feature-icon { font-weight: 700; }
+.feature-on .feature-icon { color: #00c8a0; }
+.feature-off .feature-icon { color: #888; }
+.feature-label { font-size: 12px; }
+.info-note { color: #9aa0a6; font-size: 12px; }

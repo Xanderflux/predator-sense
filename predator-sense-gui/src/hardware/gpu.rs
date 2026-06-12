@@ -20,6 +20,7 @@ pub struct GpuMetrics {
     pub power_draw_w: f64,
     pub power_limit_w: f64,
     pub power_max_w: f64,
+    pub power_min_w: f64,
     pub fan_speed_pct: u32,
     pub pstate: String,
     pub pcie_gen: String,
@@ -65,7 +66,7 @@ pub fn read_gpu_metrics() -> GpuMetrics {
 fn fetch_gpu_metrics() -> GpuMetrics {
     let o = Command::new("nvidia-smi")
         .args([
-            "--query-gpu=name,driver_version,vbios_version,memory.total,memory.used,memory.free,temperature.gpu,clocks.gr,clocks.mem,clocks.max.gr,clocks.max.mem,utilization.gpu,utilization.memory,power.draw,power.limit,power.max_limit,fan.speed,pstate,pcie.link.gen.current,pcie.link.width.current",
+            "--query-gpu=name,driver_version,vbios_version,memory.total,memory.used,memory.free,temperature.gpu,clocks.gr,clocks.mem,clocks.max.gr,clocks.max.mem,utilization.gpu,utilization.memory,power.draw,power.limit,power.max_limit,fan.speed,pstate,pcie.link.gen.current,pcie.link.width.current,power.min_limit",
             "--format=csv,noheader,nounits",
         ])
         .output();
@@ -75,7 +76,7 @@ fn fetch_gpu_metrics() -> GpuMetrics {
     };
     let t = String::from_utf8_lossy(&o.stdout);
     let p: Vec<&str> = t.trim().split(", ").collect();
-    if p.len() < 20 {
+    if p.len() < 21 {
         return GpuMetrics::default();
     }
     let parse_u32 = |s: &str| {
@@ -118,5 +119,25 @@ fn fetch_gpu_metrics() -> GpuMetrics {
         pstate: p[17].trim().into(),
         pcie_gen: p[18].trim().into(),
         pcie_width: p[19].trim().into(),
+        power_min_w: parse_f64(p[20]),
+    }
+}
+
+/// Set GPU power limit (TGP) in watts via the helper (nvidia-smi -pl, root).
+pub fn set_power_limit(watts: u32) -> Result<(), String> {
+    let helper = "/opt/predator-sense/predator-sense-helper";
+    let is_root = Command::new("id").arg("-u").output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "0")
+        .unwrap_or(false);
+    let w = watts.to_string();
+    let result = if is_root {
+        Command::new(helper).args(["set-gpu-power", &w]).output()
+    } else {
+        Command::new("pkexec").args([helper, "set-gpu-power", &w]).output()
+    };
+    match result {
+        Ok(o) if o.status.success() => Ok(()),
+        Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
+        Err(e) => Err(e.to_string()),
     }
 }

@@ -27,6 +27,14 @@ pub struct AppConfig {
     pub minimize_on_close: bool,
     #[serde(default)]
     pub start_on_boot: bool,
+    #[serde(default = "default_true")]
+    pub temp_alerts: bool,
+    #[serde(default)]
+    pub auto_profile_ac: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for AppConfig {
@@ -36,6 +44,8 @@ impl Default for AppConfig {
             auto_apply_on_start: false,
             minimize_on_close: false,
             start_on_boot: false,
+            temp_alerts: true,
+            auto_profile_ac: false,
         }
     }
 }
