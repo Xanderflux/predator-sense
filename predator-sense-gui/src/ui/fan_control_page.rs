@@ -99,6 +99,10 @@ pub fn build() -> gtk::Box {
         gpu_scale.connect_value_changed(move |s| l.set_text(&format!("GPU: {}%", s.value() as i32)));
     }
 
+    // Detect PWM (hwmon) support once. When available, the custom sliders drive
+    // real per-fan PWM via WMI; otherwise the firmware-only modes are used.
+    let pwm_ok = fan::pwm_available();
+
     // Apply custom speeds
     {
         let cs = cpu_scale.clone();
@@ -107,9 +111,14 @@ pub fn build() -> gtk::Box {
         apply_custom.connect_clicked(move |_| {
             let cpu = cs.value() as u8;
             let gpu = gs.value() as u8;
-            match fan::set_fan_mode(fan::FanMode::Custom(cpu, gpu)) {
+            let result = if pwm_ok {
+                fan::set_pwm_percent(cpu, gpu)
+            } else {
+                fan::set_fan_mode(fan::FanMode::Custom(cpu, gpu))
+            };
+            match result {
                 Ok(()) => {
-                    sl.set_text(&format!("CPU: {}%, GPU: {}%", cpu, gpu));
+                    sl.set_text(&format!("CPU: {}%, GPU: {}% ✓", cpu, gpu));
                     sl.remove_css_class("status-error");
                     sl.add_css_class("status-success");
                 }
@@ -157,6 +166,11 @@ pub fn build() -> gtk::Box {
 
             cb.set_visible(false);
             *active.borrow_mut() = mode.clone();
+
+            // When leaving custom PWM, restore automatic fan control.
+            if mode.as_str() == "auto" && fan::pwm_available() {
+                let _ = fan::set_pwm_auto();
+            }
 
             match fan::set_fan_mode(fan_mode) {
                 Ok(()) => {

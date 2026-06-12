@@ -17,7 +17,7 @@ const (
 	desktopFile = "/usr/share/applications/predator-sense.desktop"
 	iconPath    = "/usr/share/icons/hicolor/128x128/apps/predator-sense.png"
 	polkitRule  = "/usr/share/polkit-1/actions/com.predator.sense.policy"
-	appVersion  = "0.2.12"
+	appVersion  = "0.2.13-preview"
 )
 
 // ─── Colors ───
@@ -529,6 +529,14 @@ func installPermissions() error {
 
 	// Helper script
 	helper := `#!/bin/bash
+# Locate the facer/acer hwmon dir that exposes pwm* (kernel >= 6.14)
+acer_hwmon() {
+  for d in /sys/class/hwmon/hwmon*; do
+    n=$(cat "$d/name" 2>/dev/null)
+    if [ "$n" = "acer" ] && [ -e "$d/pwm1" ]; then echo "$d"; return 0; fi
+  done
+  return 1
+}
 case "$1" in
   set-governor) for c in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo "$2" > "$c" 2>/dev/null; done ;;
   set-epp) for c in /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do echo "$2" > "$c" 2>/dev/null; done ;;
@@ -547,6 +555,17 @@ case "$1" in
   boot-anim-read) python3 -c "f=open('/dev/ec','rb');f.seek(0x1A);print(ord(f.read(1)));f.close()" 2>/dev/null ;;
   usb-charge) python3 -c "f=open('/dev/ec','rb+');v=1 if '$2'=='1' else 0;f.seek(0x1B);f.write(bytes([v]));f.close()" 2>/dev/null ;;
   usb-charge-read) python3 -c "f=open('/dev/ec','rb');f.seek(0x1B);print(ord(f.read(1)));f.close()" 2>/dev/null ;;
+  # PWM fan control via hwmon (kernel >= 6.14, models with ACER_CAP_PWM).
+  # pwm value 0-255; pwm_enable: 0=max/turbo 1=manual/custom 2=auto.
+  pwm-available) d=$(acer_hwmon) && echo 1 || echo 0 ;;
+  pwm-cpu) d=$(acer_hwmon) && echo "$2" > "$d/pwm1" 2>/dev/null ;;
+  pwm-gpu) d=$(acer_hwmon) && echo "$2" > "$d/pwm2" 2>/dev/null ;;
+  pwm-cpu-read) d=$(acer_hwmon) && cat "$d/pwm1" 2>/dev/null ;;
+  pwm-gpu-read) d=$(acer_hwmon) && cat "$d/pwm2" 2>/dev/null ;;
+  pwm-cpu-enable) d=$(acer_hwmon) && echo "$2" > "$d/pwm1_enable" 2>/dev/null ;;
+  pwm-gpu-enable) d=$(acer_hwmon) && echo "$2" > "$d/pwm2_enable" 2>/dev/null ;;
+  pwm-cpu-enable-read) d=$(acer_hwmon) && cat "$d/pwm1_enable" 2>/dev/null ;;
+  pwm-gpu-enable-read) d=$(acer_hwmon) && cat "$d/pwm2_enable" 2>/dev/null ;;
 esac`
 	os.WriteFile(installDir+"/predator-sense-helper", []byte(helper), 0755)
 
