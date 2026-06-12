@@ -90,10 +90,13 @@ Inspired by and based on the [acer-predator-turbo-and-rgb-keyboard-linux-module]
 | **Network** | Real-time download/upload graphs with peak tracking and auto interface detection |
 | **RGB Keyboard Control** | Static per-zone (4 zones) and dynamic effects (Breathing, Neon, Wave, Shifting, Zoom) |
 | **Performance Profiles** | Quiet / Balanced / Performance / Turbo modes (CPU governor + Intel EPP + GPU power limit) |
-| **Fan Control** | Live RPM with animated spinning fans, CoolBoost toggle and Auto/Max modes |
+| **Fan Control** | Live RPM with animated spinning fans, CoolBoost toggle, Auto/Max modes, plus experimental per-fan PWM control & auto temperature curve (where supported) |
 | **Battery** | Charge stats, cycles, health, manufacturer info and 80% charge limit for longevity |
-| **GPU Dashboard** | NVIDIA metrics: temperature, utilization, VRAM, clocks, power draw, PCIe info with live graphs |
+| **GPU Dashboard** | NVIDIA metrics: temperature, utilization, VRAM, clocks, power draw, PCIe info with live graphs, plus a **power limit (TGP) slider** |
 | **Graphs** | Detailed CPU and GPU history charts with min/max tracking |
+| **Auto capability detection** | Detects what each model supports and adapts the UI — unsupported features are shown as "not available on this model" instead of erroring. Supported features are listed in Settings |
+| **Temperature alerts** | Desktop notification when CPU/GPU exceed 90°C (works in the tray) |
+| **Auto power profile** | Switches to Performance on AC and Balanced on battery automatically |
 | **System Tray** | Minimize to tray with the Predator icon — app stays alive in background |
 | **PredatorSense Key** | Hardware key mapping — the key next to NumLock opens the app |
 | **DKMS** | Kernel modules rebuild automatically across kernel upgrades |

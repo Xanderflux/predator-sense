@@ -90,10 +90,13 @@ Inspirado e baseado no projeto [acer-predator-turbo-and-rgb-keyboard-linux-modul
 | **Rede** | Gráficos de download/upload em tempo real, com tracking de pico e detecção automática de interface |
 | **Controle RGB do Teclado** | Cores estáticas por zona (4 zonas) e efeitos dinâmicos (Respiração, Neon, Onda, Deslizar, Zoom) |
 | **Perfis de Desempenho** | Silencioso / Balanceado / Performance / Turbo (CPU governor + Intel EPP + limite de potência da GPU) |
-| **Controle de Ventoinha** | RPM ao vivo com animação girando, toggle do CoolBoost e modos Auto/Max |
+| **Controle de Ventoinha** | RPM ao vivo com animação girando, toggle do CoolBoost, modos Auto/Max, e controle PWM por ventoinha + curva automática por temperatura (experimental, onde suportado) |
 | **Bateria** | Estatísticas de carga, ciclos, saúde, fabricante e limite de carga em 80% para preservar a longevidade |
-| **Dashboard GPU** | Métricas NVIDIA: temperatura, utilização, VRAM, clocks, consumo, info PCIe com gráficos ao vivo |
+| **Dashboard GPU** | Métricas NVIDIA: temperatura, utilização, VRAM, clocks, consumo, info PCIe com gráficos ao vivo, e **slider de limite de potência (TGP)** |
 | **Gráficos** | Histórico detalhado de CPU e GPU com tracking de mínimas e máximas |
+| **Detecção automática de recursos** | Detecta o que cada modelo suporta e adapta a interface — recursos sem suporte aparecem como "não disponível neste modelo" em vez de erro. Os recursos suportados são listados nas Configurações |
+| **Alertas de temperatura** | Notificação no desktop quando CPU/GPU passam de 90°C (funciona na bandeja) |
+| **Perfil automático por energia** | Troca para Performance na tomada e Balanceado na bateria automaticamente |
 | **Bandeja do Sistema** | Minimizar para a bandeja com o ícone Predator — app continua vivo em segundo plano |
 | **Tecla PredatorSense** | Mapeamento da tecla física — a tecla ao lado do NumLock abre a aplicação |
 | **DKMS** | Módulos do kernel recompilam automaticamente em atualizações do kernel |

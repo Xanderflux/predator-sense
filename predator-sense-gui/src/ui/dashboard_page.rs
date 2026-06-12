@@ -104,11 +104,18 @@ pub fn build() -> gtk::ScrolledWindow {
     let storage_detail = if info.storage.is_empty() {
         "—".into()
     } else {
-        info.storage
+        // Limit to 2 disks so a many-disk machine doesn't make this card tall
+        // and misalign the grid; append a "+N" summary for the rest.
+        let mut lines: Vec<String> = info
+            .storage
             .iter()
+            .take(2)
             .map(|s| format!("{} · {:.0} GB · {}", s.model.trim(), s.size_gb, s.kind))
-            .collect::<Vec<_>>()
-            .join("\n")
+            .collect();
+        if info.storage.len() > 2 {
+            lines.push(format!("+{} ...", info.storage.len() - 2));
+        }
+        lines.join("\n")
     };
 
     let net_detail = if info.net_interface.is_empty() {
@@ -144,14 +151,14 @@ pub fn build() -> gtk::ScrolledWindow {
 
     page.append(&grid);
 
-    // === Supported features (auto-detected for this model) ===
-    let caps = crate::hardware::capabilities::get();
-    let feat_title = gtk::Label::new(Some(crate::i18n::t("dashboard_features")));
-    feat_title.add_css_class("section-title");
-    feat_title.set_halign(gtk::Align::Start);
-    feat_title.set_margin_top(14);
-    page.append(&feat_title);
+    scroll.set_child(Some(&page));
+    scroll
+}
 
+/// Reusable "supported features" FlowBox (used in Settings). Auto-detected for
+/// the current model via capabilities.
+pub fn build_features_flow() -> gtk::FlowBox {
+    let caps = crate::hardware::capabilities::get();
     let feat_flow = gtk::FlowBox::new();
     feat_flow.set_selection_mode(gtk::SelectionMode::None);
     feat_flow.set_max_children_per_line(4);
@@ -173,10 +180,7 @@ pub fn build() -> gtk::ScrolledWindow {
     for (name, ok) in features {
         feat_flow.insert(&make_feature_chip(name, ok), -1);
     }
-    page.append(&feat_flow);
-
-    scroll.set_child(Some(&page));
-    scroll
+    feat_flow
 }
 
 fn make_feature_chip(name: &str, supported: bool) -> gtk::Box {
@@ -217,7 +221,9 @@ fn build_short_summary(info: &SystemInfo) -> String {
 fn create_spec_card(icon: &str, title: &str, value: &str) -> gtk::Box {
     let card = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     card.add_css_class("spec-card");
-    card.set_valign(gtk::Align::Start);
+    // Fill the grid row so both cards on a row keep the same height (no misalign).
+    card.set_valign(gtk::Align::Fill);
+    card.set_vexpand(true);
 
     let icon_l = gtk::Label::new(Some(icon));
     icon_l.add_css_class("spec-icon");

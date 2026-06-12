@@ -1,6 +1,8 @@
 use gtk4::prelude::*;
-use gtk4::{self as gtk};
+use gtk4::{self as gtk, glib};
+use std::cell::RefCell;
 use std::f64::consts::PI;
+use std::rc::Rc;
 
 use crate::hardware::profile;
 use crate::hardware::sensors::SensorData;
@@ -25,19 +27,41 @@ pub fn build(sensor_data: &SensorData) -> gtk::Box {
     let icons = gtk::DrawingArea::new();
     icons.set_size_request(70, 18);
     icons.set_halign(gtk::Align::End);
-    icons.set_draw_func(|_a, cr, _w, _h| {
-        for i in 0..3 {
-            let x = 10.0 + i as f64 * 22.0;
-            cr.arc(x, 9.0, 6.0, 0.0, 2.0 * PI);
-            cr.set_source_rgba(
-                if i == 0 { 0.0 } else { 0.33 },
-                if i == 0 { 0.8 } else { 0.33 },
-                if i == 0 { 0.9 } else { 0.33 },
-                1.0,
-            );
-            let _ = cr.fill();
-        }
-    });
+    // Sequential blink: 0 dots -> 1 -> 2 -> 3 (all on) -> back to 0, looping.
+    let blink_phase: Rc<RefCell<usize>> = Rc::new(RefCell::new(0));
+    {
+        let phase = blink_phase.clone();
+        icons.set_draw_func(move |_a, cr, _w, _h| {
+            let lit = *phase.borrow();
+            for i in 0..3 {
+                let x = 10.0 + i as f64 * 22.0;
+                cr.arc(x, 9.0, 6.0, 0.0, 2.0 * PI);
+                if i < lit {
+                    cr.set_source_rgba(0.0, 0.8, 0.9, 1.0); // on (cyan)
+                } else {
+                    cr.set_source_rgba(0.33, 0.33, 0.33, 1.0); // off (gray)
+                }
+                let _ = cr.fill();
+            }
+        });
+    }
+    {
+        let phase = blink_phase.clone();
+        let area = icons.clone();
+        // This page is rebuilt periodically; stop the timer once this area is
+        // detached (no root) so old instances don't leak.
+        glib::timeout_add_local(std::time::Duration::from_millis(450), move || {
+            if area.root().is_none() {
+                return glib::ControlFlow::Break;
+            }
+            {
+                let mut p = phase.borrow_mut();
+                *p = (*p + 1) % 4; // 0,1,2,3 then wrap to 0 (all off)
+            }
+            area.queue_draw();
+            glib::ControlFlow::Continue
+        });
+    }
     header.append(&title);
     header.append(&icons);
     page.append(&header);

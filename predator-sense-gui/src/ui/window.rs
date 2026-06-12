@@ -632,6 +632,14 @@ fn build_settings_page(_app: &adw::Application) -> gtk::ScrolledWindow {
 
     let cfg = config::load_app_config();
 
+    // === Supported features (auto-detected for this model) ===
+    let feat_title = gtk::Label::new(Some(t("dashboard_features")));
+    feat_title.add_css_class("settings-section-title");
+    feat_title.set_halign(gtk::Align::Start);
+    feat_title.set_margin_top(8);
+    page.append(&feat_title);
+    page.append(&dashboard_page::build_features_flow());
+
     let beh_title = gtk::Label::new(Some(t("behavior")));
     beh_title.add_css_class("settings-section-title");
     beh_title.set_halign(gtk::Align::Start);
