@@ -106,40 +106,49 @@ Inspirado e baseado no projeto [acer-predator-turbo-and-rgb-keyboard-linux-modul
 
 **Vai funcionar no meu notebook?**
 
-| Modelo | Modo Turbo (Implementado) | Modo Turbo (Testado) | RGB (Implementado) | RGB (Testado) |
-|--------|:-------------------------:|:--------------------:|:-------------------:|:-------------:|
-| AN515-45 | - | - | Sim | Sim |
-| AN515-55 | - | - | Sim | Sim |
-| AN515-56 | - | - | Sim | Sim |
-| AN515-57 | - | - | Sim | Sim |
-| AN515-58 | - | - | Sim | Sim |
-| AN517-41 | - | - | Sim | Sim |
-| PH315-52 | Sim | Sim | Sim | Sim |
-| PH315-53 | Sim | Sim | Sim | Sim |
-| **PH315-54** | **Sim** | **Sim** | **Sim** | **Sim** |
-| PH315-55 | Sim | Instável | Sim | Não |
-| PH317-53 | Sim | Sim | Sim | Sim |
-| PH317-54 | Sim | Não | Sim | Não |
-| PH517-51 | Sim | Não | Sim | Não |
-| PH517-52 | Sim | Não | Sim | Não |
-| PH517-61 | Parcial | Parcial | Sim | Sim |
-| PH717-71 | Sim | Não | Sim | Não |
-| PH717-72 | Sim | Não | Sim | Não |
-| PHN16-71 | Sim | Não | Sim | Não |
-| PHN16-72 | Sim | Não | Sim | Não |
-| PHN18-71 | Sim | Sim | Sim | Sim |
-| PT314-51 | Não | Não | Sim | Sim |
-| PT314-52s | Sim | Sim | Sim | Não |
-| PT315-51 | Sim | Sim | Sim | Sim |
-| PT315-52 | Sim | Não | Sim | Não |
-| PT316-51 | Sim | Sim | Sim | Sim |
-| PT316-51s | Sim | Sim | Sim | Não |
-| PT515-51 | Sim | Sim | Sim | Sim |
-| PT515-52 | Sim | Não | Sim | Não |
-| PT516-52s | Sim | Não | Sim | Sim |
-| PT917-71 | Sim | Não | Sim | Não |
+Legenda: ✅ testado e funcionando · 🟡 implementado, não testado (precisa de testador) · 🧪 experimental (precisa de testador) · ❌ não funciona · `-` não se aplica
+
+| Modelo | Turbo (Impl.) | Turbo (Test.) | RGB (Impl.) | RGB (Test.) | Leitura RPM | Perfis de fan | Fan PWM % |
+|--------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| AN515-45 | - | - | ✅ | ✅ | 🟡 | - | ❌ |
+| AN515-55 | - | - | ✅ | ✅ | 🟡 | - | ❌ |
+| AN515-56 | - | - | ✅ | ✅ | 🟡 | - | ❌ |
+| AN515-57 | - | - | ✅ | ✅ | 🟡 | - | ❌ |
+| AN515-58 | - | - | ✅ | ✅ | 🟡 | 🟡 | 🧪 |
+| AN517-41 | - | - | ✅ | ✅ | 🟡 | - | ❌ |
+| PH315-52 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| PH315-53 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| **PH315-54** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| PH315-55 | ✅ | 🟡 | ✅ | ❌ | 🟡 | - | ❌ |
+| PH317-53 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| PH317-54 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | - | ❌ |
+| PH317-55 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | - | ❌ |
+| PH517-51 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | - | ❌ |
+| PH517-52 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | - | ❌ |
+| PH517-61 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | - | ❌ |
+| PHN16-71 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | ❌ |
+| PHN16-72 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🧪 |
+| **PHN16-73** | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🧪 |
+| PHN18-71 | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❌ |
+| PT314-51 | ❌ | ❌ | ✅ | ✅ | 🟡 | - | ❌ |
+| PT314-52s | ✅ | ✅ | ✅ | 🟡 | 🟡 | - | ❌ |
+| PT315-51 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| PT316-51 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| PT515-51 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| PT516-52s | ✅ | 🟡 | ✅ | ✅ | 🟡 | - | ❌ |
+| PT917-71 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | - | ❌ |
 
 > Se o seu modelo não está listado, ele ainda pode funcionar — o módulo do kernel detecta interfaces WMI compatíveis automaticamente. Se funcionou (ou não) para você, por favor abra uma issue mencionando seu modelo para que possamos atualizar esta tabela.
+
+### Controle de ventoinha — três níveis
+
+| Nível | O que faz | Disponibilidade |
+|---|---|---|
+| **Leitura de RPM** | Lê velocidade das ventoinhas CPU/GPU (`fan1_input`, `fan2_input`) | Maioria dos modelos gaming (auto-detectado) |
+| **Perfis de ventoinha** | Quiet / Balanced / Performance / Turbo via `platform_profile` | Modelos `predator_v4` |
+| **Fan PWM %** 🧪 | Controle de velocidade por ventoinha (`pwm1`/`pwm2` 0–100%) portado do `acer-wmi` mainline via WMI — **somente kernel ≥ 6.14** | Subconjunto de modelos com `ACER_CAP_PWM` (AN515-58, PHN16-72/73, …) |
+
+> **🧪 O controle PWM é experimental.** É portado do driver `acer-wmi` oficial do kernel Linux e usa métodos WMI seguros (sem escrita bruta no EC), mas **não foi verificado em hardware real** pelo mantenedor (que tem um PH315-54, sem PWM). Se você tem um modelo suportado, relatos de teste são muito bem-vindos. **Use por sua conta e risco** — veja o aviso no topo.
 
 ---
 

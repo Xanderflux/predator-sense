@@ -106,40 +106,49 @@ Inspired by and based on the [acer-predator-turbo-and-rgb-keyboard-linux-module]
 
 **Will this work on my laptop?**
 
-| Product Name | Turbo Mode (Implemented) | Turbo Mode (Tested) | RGB (Implemented) | RGB (Tested) |
-|--------------|:------------------------:|:-------------------:|:-----------------:|:------------:|
-| AN515-45 | - | - | Yes | Yes |
-| AN515-55 | - | - | Yes | Yes |
-| AN515-56 | - | - | Yes | Yes |
-| AN515-57 | - | - | Yes | Yes |
-| AN515-58 | - | - | Yes | Yes |
-| AN517-41 | - | - | Yes | Yes |
-| PH315-52 | Yes | Yes | Yes | Yes |
-| PH315-53 | Yes | Yes | Yes | Yes |
-| **PH315-54** | **Yes** | **Yes** | **Yes** | **Yes** |
-| PH315-55 | Yes | Buggy | Yes | No |
-| PH317-53 | Yes | Yes | Yes | Yes |
-| PH317-54 | Yes | No | Yes | No |
-| PH517-51 | Yes | No | Yes | No |
-| PH517-52 | Yes | No | Yes | No |
-| PH517-61 | Partial | Partial | Yes | Yes |
-| PH717-71 | Yes | No | Yes | No |
-| PH717-72 | Yes | No | Yes | No |
-| PHN16-71 | Yes | No | Yes | No |
-| PHN16-72 | Yes | No | Yes | No |
-| PHN18-71 | Yes | Yes | Yes | Yes |
-| PT314-51 | No | No | Yes | Yes |
-| PT314-52s | Yes | Yes | Yes | No |
-| PT315-51 | Yes | Yes | Yes | Yes |
-| PT315-52 | Yes | No | Yes | No |
-| PT316-51 | Yes | Yes | Yes | Yes |
-| PT316-51s | Yes | Yes | Yes | No |
-| PT515-51 | Yes | Yes | Yes | Yes |
-| PT515-52 | Yes | No | Yes | No |
-| PT516-52s | Yes | No | Yes | Yes |
-| PT917-71 | Yes | No | Yes | No |
+Legend: ✅ tested & working · 🟡 implemented, not tested (needs a tester) · 🧪 experimental (needs a tester) · ❌ not working · `-` not applicable
+
+| Product Name | Turbo (Impl.) | Turbo (Tested) | RGB (Impl.) | RGB (Tested) | Fan RPM read | Fan profiles | Fan PWM % |
+|--------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| AN515-45 | - | - | ✅ | ✅ | 🟡 | - | ❌ |
+| AN515-55 | - | - | ✅ | ✅ | 🟡 | - | ❌ |
+| AN515-56 | - | - | ✅ | ✅ | 🟡 | - | ❌ |
+| AN515-57 | - | - | ✅ | ✅ | 🟡 | - | ❌ |
+| AN515-58 | - | - | ✅ | ✅ | 🟡 | 🟡 | 🧪 |
+| AN517-41 | - | - | ✅ | ✅ | 🟡 | - | ❌ |
+| PH315-52 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| PH315-53 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| **PH315-54** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| PH315-55 | ✅ | 🟡 | ✅ | ❌ | 🟡 | - | ❌ |
+| PH317-53 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| PH317-54 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | - | ❌ |
+| PH317-55 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | - | ❌ |
+| PH517-51 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | - | ❌ |
+| PH517-52 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | - | ❌ |
+| PH517-61 | 🟡 | 🟡 | ✅ | ✅ | 🟡 | - | ❌ |
+| PHN16-71 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | ❌ |
+| PHN16-72 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🧪 |
+| **PHN16-73** | ✅ | 🟡 | ✅ | 🟡 | 🟡 | 🟡 | 🧪 |
+| PHN18-71 | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | ❌ |
+| PT314-51 | ❌ | ❌ | ✅ | ✅ | 🟡 | - | ❌ |
+| PT314-52s | ✅ | ✅ | ✅ | 🟡 | 🟡 | - | ❌ |
+| PT315-51 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| PT316-51 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| PT515-51 | ✅ | ✅ | ✅ | ✅ | 🟡 | - | ❌ |
+| PT516-52s | ✅ | 🟡 | ✅ | ✅ | 🟡 | - | ❌ |
+| PT917-71 | ✅ | 🟡 | ✅ | 🟡 | 🟡 | - | ❌ |
 
 > If your model is not listed, it may still work — the kernel module detects compatible WMI interfaces automatically. If it worked (or didn't) for you, please open an issue mentioning your model so we can update this table.
+
+### Fan control — three levels
+
+| Level | What it does | Availability |
+|---|---|---|
+| **Fan RPM read** | Read CPU/GPU fan speed (`fan1_input`, `fan2_input`) | Most gaming models (auto-detected) |
+| **Fan profiles** | Quiet / Balanced / Performance / Turbo via `platform_profile` | `predator_v4` models |
+| **Fan PWM %** 🧪 | Per-fan speed control (`pwm1`/`pwm2` 0–100%) ported from mainline `acer-wmi` via WMI — **kernel ≥ 6.14 only** | Subset of models with `ACER_CAP_PWM` (AN515-58, PHN16-72/73, …) |
+
+> **🧪 PWM fan control is experimental.** It is ported from the upstream Linux kernel `acer-wmi` driver and uses safe WMI methods (no raw EC writes), but it has **not been verified on real hardware** by the maintainer (who owns a PH315-54, which has no PWM). If you have a supported model, testing reports are very welcome. **Use at your own risk** — see the disclaimer at the top.
 
 ---
 
