@@ -119,7 +119,15 @@ case "$PKG" in
         ;;
     pacman)
         pacman -S --noconfirm --needed gtk4 libadwaita pkgconf gcc make \
-            linux-headers git curl python 2>/dev/null
+            git curl python 2>/dev/null
+        # Install headers matching the running kernel (works for cachyos, zen, lts, vanilla, etc.)
+        PKGBASE=$(cat "/lib/modules/$(uname -r)/pkgbase" 2>/dev/null || echo "linux")
+        HEADERS_PKG="${PKGBASE}-headers"
+        if pacman -Si "$HEADERS_PKG" &>/dev/null; then
+            pacman -S --noconfirm --needed "$HEADERS_PKG" 2>/dev/null
+        else
+            pacman -S --noconfirm --needed linux-headers 2>/dev/null
+        fi
         ;;
 esac
 msg ok "Dependencies"
@@ -226,8 +234,11 @@ msg ok "Files installed"
 # ─── 6. Kernel module ───
 msg kernel
 KERNEL_DIR="$TMP_DIR/predator-sense-gui/kernel"
+MAKE_LOG="$TMP_DIR/make.log"
+MODULE_OK=0
 cd "$KERNEL_DIR"
-if make 2>/dev/null && [ -f "$KERNEL_DIR/facer.ko" ]; then
+if make > "$MAKE_LOG" 2>&1 && [ -f "$KERNEL_DIR/facer.ko" ]; then
+    MODULE_OK=1
     cp "$KERNEL_DIR/facer.ko" "$INSTALL_DIR/kernel/"
     # Make module load on every boot
     mkdir -p "/lib/modules/$(uname -r)/extra/"
@@ -249,6 +260,11 @@ if make 2>/dev/null && [ -f "$KERNEL_DIR/facer.ko" ]; then
     insmod "$KERNEL_DIR/acer-wmi-battery.ko" 2>/dev/null && msg ok "acer-wmi-battery loaded" || msg skip "acer-wmi-battery not available"
 else
     msg fail "Kernel module compilation failed"
+    echo ""
+    echo "  ── Build log ──────────────────────────────────────"
+    tail -20 "$MAKE_LOG"
+    echo "  ───────────────────────────────────────────────────"
+    echo ""
 fi
 
 # ─── 7. Configure hotkey + tray + autostart ───
@@ -317,4 +333,10 @@ msg ok "Hotkey + autostart configured"
 # ─── Cleanup ───
 rm -rf "$TMP_DIR"
 
-msg done_msg
+if [ "$MODULE_OK" -eq 1 ]; then
+    msg done_msg
+else
+    echo -e "\n  ${YELLOW}${BOLD}⚠  Predator Sense installed (app only — kernel module failed)${NC}"
+    echo -e "  ${DIM}Fan/RGB/EC features require the kernel module.${NC}"
+    echo -e "  ${DIM}Fix kernel headers and re-run the installer to build the module.${NC}\n"
+fi
