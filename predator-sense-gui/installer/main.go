@@ -17,7 +17,7 @@ const (
 	desktopFile = "/usr/share/applications/predator-sense.desktop"
 	iconPath    = "/usr/share/icons/hicolor/128x128/apps/predator-sense.png"
 	polkitRule  = "/usr/share/polkit-1/actions/com.predator.sense.policy"
-	appVersion  = "0.2.14"
+	appVersion  = "0.2.15"
 )
 
 // ─── Colors ───
@@ -712,15 +712,26 @@ func installModule() error {
 		copyFile(s, filepath.Join(srcDir, base))
 	}
 
+	// If the running kernel was built with Clang, dkms must use Clang too.
+	// Detect via CONFIG_CC_IS_CLANG in the kernel config.
+	extraEnv := []string{}
+	kernelConfig := fmt.Sprintf("/lib/modules/%s/build/.config", strings.TrimSpace(runOutput("uname", "-r")))
+	if fileContains(kernelConfig, "CONFIG_CC_IS_CLANG=y") {
+		if !commandExists("clang") {
+			installClang()
+		}
+		extraEnv = append(extraEnv, "CC=clang", "HOSTCC=clang")
+	}
+
 	// Register, build, install for the running kernel. AUTOINSTALL=yes in
 	// dkms.conf makes future kernel upgrades rebuild this module automatically.
 	if err := run("dkms", "add", "-m", dkmsModule, "-v", dkmsVersion); err != nil {
 		return fmt.Errorf("dkms add falhou: %v", err)
 	}
-	if err := run("dkms", "build", "-m", dkmsModule, "-v", dkmsVersion); err != nil {
+	if err := runWithEnv(extraEnv, "dkms", "build", "-m", dkmsModule, "-v", dkmsVersion); err != nil {
 		return fmt.Errorf("dkms build falhou: %v", err)
 	}
-	if err := run("dkms", "install", "-m", dkmsModule, "-v", dkmsVersion, "--force"); err != nil {
+	if err := runWithEnv(extraEnv, "dkms", "install", "-m", dkmsModule, "-v", dkmsVersion, "--force"); err != nil {
 		return fmt.Errorf("dkms install falhou: %v", err)
 	}
 
@@ -953,6 +964,35 @@ func run(name string, args ...string) error {
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	return cmd.Run()
+}
+
+func runWithEnv(env []string, name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), env...)
+	return cmd.Run()
+}
+
+func runOutput(name string, args ...string) string {
+	out, _ := exec.Command(name, args...).Output()
+	return strings.TrimSpace(string(out))
+}
+
+func fileContains(path, substr string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), substr)
+}
+
+func installClang() {
+	if commandExists("apt-get") {
+		run("apt-get", "install", "-y", "clang")
+	} else if commandExists("dnf") {
+		run("dnf", "install", "-y", "clang")
+	} else if commandExists("pacman") {
+		run("pacman", "-S", "--noconfirm", "--needed", "clang")
+	}
 }
 
 func runSilent(name string, args ...string) bool {
