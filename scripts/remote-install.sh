@@ -239,20 +239,28 @@ MODULE_OK=0
 cd "$KERNEL_DIR"
 # If the running kernel was built with Clang, use Clang to build the module too
 KERNEL_CONFIG="/lib/modules/$(uname -r)/build/.config"
-MAKE_CC=""
+MAKE_EXTRA=""
 if grep -q "^CONFIG_CC_IS_CLANG=y" "$KERNEL_CONFIG" 2>/dev/null; then
-    if command -v clang &>/dev/null; then
-        MAKE_CC="CC=clang"
-    else
+    if ! command -v clang &>/dev/null; then
         case "$PKG" in
             pacman) pacman -S --noconfirm --needed clang 2>/dev/null ;;
             apt)    apt-get install -y -qq clang 2>/dev/null ;;
             dnf)    dnf install -y clang 2>/dev/null ;;
         esac
-        MAKE_CC="CC=clang"
     fi
+    MAKE_EXTRA="$MAKE_EXTRA CC=clang HOSTCC=clang"
 fi
-if make $MAKE_CC > "$MAKE_LOG" 2>&1 && [ -f "$KERNEL_DIR/facer.ko" ]; then
+if grep -q "^CONFIG_LD_IS_LLD=y" "$KERNEL_CONFIG" 2>/dev/null; then
+    if ! command -v ld.lld &>/dev/null; then
+        case "$PKG" in
+            pacman) pacman -S --noconfirm --needed lld 2>/dev/null ;;
+            apt)    apt-get install -y -qq lld 2>/dev/null ;;
+            dnf)    dnf install -y lld 2>/dev/null ;;
+        esac
+    fi
+    MAKE_EXTRA="$MAKE_EXTRA LD=ld.lld"
+fi
+if make $MAKE_EXTRA > "$MAKE_LOG" 2>&1 && [ -f "$KERNEL_DIR/facer.ko" ]; then
     MODULE_OK=1
     cp "$KERNEL_DIR/facer.ko" "$INSTALL_DIR/kernel/"
     # Make module load on every boot
