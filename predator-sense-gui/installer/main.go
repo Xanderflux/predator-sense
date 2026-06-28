@@ -17,7 +17,7 @@ const (
 	desktopFile = "/usr/share/applications/predator-sense.desktop"
 	iconPath    = "/usr/share/icons/hicolor/128x128/apps/predator-sense.png"
 	polkitRule  = "/usr/share/polkit-1/actions/com.predator.sense.policy"
-	appVersion  = "0.2.15"
+	appVersion  = "0.2.16"
 )
 
 // ─── Colors ───
@@ -712,8 +712,8 @@ func installModule() error {
 		copyFile(s, filepath.Join(srcDir, base))
 	}
 
-	// If the running kernel was built with Clang, dkms must use Clang too.
-	// Detect via CONFIG_CC_IS_CLANG in the kernel config.
+	// If the running kernel was built with Clang/LLD, dkms must use the same
+	// toolchain. Detect via CONFIG_CC_IS_CLANG and CONFIG_LD_IS_LLD.
 	extraEnv := []string{}
 	kernelConfig := fmt.Sprintf("/lib/modules/%s/build/.config", strings.TrimSpace(runOutput("uname", "-r")))
 	if fileContains(kernelConfig, "CONFIG_CC_IS_CLANG=y") {
@@ -721,6 +721,12 @@ func installModule() error {
 			installClang()
 		}
 		extraEnv = append(extraEnv, "CC=clang", "HOSTCC=clang")
+	}
+	if fileContains(kernelConfig, "CONFIG_LD_IS_LLD=y") {
+		if !commandExists("ld.lld") {
+			installLLD()
+		}
+		extraEnv = append(extraEnv, "LD=ld.lld")
 	}
 
 	// Register, build, install for the running kernel. AUTOINSTALL=yes in
@@ -992,6 +998,16 @@ func installClang() {
 		run("dnf", "install", "-y", "clang")
 	} else if commandExists("pacman") {
 		run("pacman", "-S", "--noconfirm", "--needed", "clang")
+	}
+}
+
+func installLLD() {
+	if commandExists("apt-get") {
+		run("apt-get", "install", "-y", "lld")
+	} else if commandExists("dnf") {
+		run("dnf", "install", "-y", "lld")
+	} else if commandExists("pacman") {
+		run("pacman", "-S", "--noconfirm", "--needed", "lld")
 	}
 }
 
