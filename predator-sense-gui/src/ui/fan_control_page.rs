@@ -274,7 +274,7 @@ pub fn build() -> gtk::Box {
 
     // CPU Fan
     let cpu_fan_da = gtk::DrawingArea::new();
-    cpu_fan_da.set_size_request(160, 160);
+    cpu_fan_da.set_size_request(160, 185);
     {
         let rot = rotation.clone();
         let rpm = cpu_rpm.clone();
@@ -291,7 +291,7 @@ pub fn build() -> gtk::Box {
 
     // GPU Fan
     let gpu_fan_da = gtk::DrawingArea::new();
-    gpu_fan_da.set_size_request(160, 160);
+    gpu_fan_da.set_size_request(160, 185);
     {
         let rot = rotation.clone();
         let rpm = gpu_rpm.clone();
