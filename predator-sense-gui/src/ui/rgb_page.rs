@@ -67,7 +67,7 @@ pub fn build() -> gtk::Box {
     bright_box.set_halign(gtk::Align::End);
     bright_box.set_hexpand(true);
     let bl = gtk::Label::new(Some(crate::i18n::t("brightness")));
-    bl.add_css_class("control-label");
+    bl.add_css_class("rgb-channel-label");
     let bs = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 100.0, 1.0);
     bs.set_value(100.0);
     bs.set_size_request(120, -1);
@@ -133,10 +133,10 @@ pub fn build() -> gtk::Box {
 
     for zone in 0..4 {
         let zb = gtk::Box::new(gtk::Orientation::Vertical, 3);
-        zb.set_size_request(130, -1);
+        zb.set_size_request(140, -1);
 
         let lbl = gtk::Label::new(Some(&format!("{} {}", crate::i18n::t("section"), zone + 1)));
-        lbl.add_css_class("control-label");
+        lbl.add_css_class("rgb-zone-label");
         zb.append(&lbl);
 
         // Color preview
@@ -163,8 +163,8 @@ pub fn build() -> gtk::Box {
         for (ch, (name, def)) in channels.iter().zip(defaults.iter()).enumerate() {
             let row = gtk::Box::new(gtk::Orientation::Horizontal, 4);
             let cl = gtk::Label::new(Some(name));
-            cl.add_css_class("info-text-dim");
-            cl.set_size_request(12, -1);
+            cl.add_css_class("rgb-channel-label");
+            cl.set_size_request(18, -1);
             let sl = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 255.0, 1.0);
             sl.set_value(*def);
             sl.set_size_request(80, -1);
@@ -226,7 +226,7 @@ pub fn build() -> gtk::Box {
     let sp_row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     sp_row.set_halign(gtk::Align::Center);
     let spl = gtk::Label::new(Some(crate::i18n::t("speed")));
-    spl.add_css_class("control-label");
+    spl.add_css_class("rgb-channel-label");
     let sps = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 9.0, 1.0);
     sps.set_value(4.0);
     sps.set_size_request(150, -1);
@@ -237,7 +237,7 @@ pub fn build() -> gtk::Box {
 
     // Color for dynamic effects
     let cr_l = gtk::Label::new(Some(crate::i18n::t("color")));
-    cr_l.add_css_class("control-label");
+    cr_l.add_css_class("rgb-channel-label");
     sp_row.append(&cr_l);
     for (ch, def) in [(0u8, 0.0f64), (1, 255.0), (2, 255.0)] {
         let sl = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 255.0, 1.0);

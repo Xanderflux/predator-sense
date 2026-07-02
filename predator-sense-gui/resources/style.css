@@ -213,6 +213,20 @@
     font-weight: 500;
 }
 
+/* Larger labels for the Lighting tab (accessibility: RGB channel/zone labels
+   were reported too small to read even on a maximized 16" display). */
+.rgb-zone-label {
+    font-size: 15px;
+    color: @text_muted;
+    font-weight: 600;
+}
+
+.rgb-channel-label {
+    font-size: 13px;
+    color: @text_muted;
+    font-weight: 600;
+}
+
 /* === Scales/Sliders === */
 .accent-scale trough {
     background-color: #222;

@@ -304,7 +304,7 @@ cat > "$INSTALL_DIR/hotkey-daemon.py" << 'HOTKEY'
 #!/usr/bin/env python3
 import struct,subprocess,os,signal,sys,time
 KEY_CODE=425;EV_KEY=1;KEY_PRESS=1
-KB_NAMES=['AT Translated Set 2 keyboard','Acer WMI hotkeys']
+KB_NAMES=['Acer WMI hotkeys','AT Translated Set 2 keyboard']
 def find_kb():
     with open('/proc/bus/input/devices') as f: c=f.read()
     for name in KB_NAMES:

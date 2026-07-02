@@ -2688,6 +2688,7 @@ static ssize_t gkbbl_static_drv_write(struct file *file, const char __user *buf,
 		 */
 		u8 prime_payload[GAMING_KBBL_CONFIG_LEN] = {0};
 		struct acpi_buffer prime_input;
+		acpi_status prime_status, static_status;
 
 		prime_payload[2] = 100; /* brightness */
 		prime_payload[8] = 3;
@@ -2696,7 +2697,7 @@ static ssize_t gkbbl_static_drv_write(struct file *file, const char __user *buf,
 			sizeof(prime_payload),
 			&prime_payload
 		};
-		wmi_evaluate_method(WMID_GUID4, 0, ACER_WMID_SET_GAMINGKBBL_METHODID, &prime_input, NULL);
+		prime_status = wmi_evaluate_method(WMID_GUID4, 0, ACER_WMID_SET_GAMINGKBBL_METHODID, &prime_input, NULL);
 
 		set_params_u64 = (struct led_zone_set_param_u64) {
 			.zone = config_buf[0],
@@ -2709,7 +2710,18 @@ static ssize_t gkbbl_static_drv_write(struct file *file, const char __user *buf,
 			sizeof(set_params_u64),
 			&set_params_u64
 		};
-		wmi_evaluate_method(WMID_GUID4, 0, ACER_WMID_SET_GAMING_STATIC_LED_METHODID, &set_input, NULL);
+		static_status = wmi_evaluate_method(WMID_GUID4, 0, ACER_WMID_SET_GAMING_STATIC_LED_METHODID, &set_input, NULL);
+
+		pr_info("gkbbl_static (four_zone_kb): prime payload=[%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x] status=%s | static payload=[%02x %02x %02x %02x %02x %02x %02x %02x] status=%s\n",
+			prime_payload[0], prime_payload[1], prime_payload[2], prime_payload[3],
+			prime_payload[4], prime_payload[5], prime_payload[6], prime_payload[7],
+			prime_payload[8], prime_payload[9], prime_payload[10], prime_payload[11],
+			prime_payload[12], prime_payload[13], prime_payload[14], prime_payload[15],
+			acpi_format_exception(prime_status),
+			set_params_u64.zone, set_params_u64.red, set_params_u64.green, set_params_u64.blue,
+			set_params_u64.reserved[0], set_params_u64.reserved[1], set_params_u64.reserved[2], set_params_u64.reserved[3],
+			acpi_format_exception(static_status));
+
 		return count;
 	}
 
