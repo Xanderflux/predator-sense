@@ -511,6 +511,7 @@ struct quirk_entry {
 	u8 gpu_fans;
 	u8 predator_v4;
 	u8 pwm;
+	u8 four_zone_kb;
 };
 
 static struct quirk_entry *quirks;
@@ -608,6 +609,11 @@ static struct quirk_entry quirk_acer_predator_phn16_72 = {
  * PHN16-73 (Macan_ARX). predator_v4 + pwm enabled based on mainline acer-wmi
  * marking the related PHN16-72/PH16-72 generation with .pwm = 1. PWM fan
  * control is EXPERIMENTAL on this exact model (not verified on real hardware).
+ *
+ * four_zone_kb = 1: this generation's static RGB WMI method appears to expect
+ * the zone/color payload packed as a u64 argument (matching linuwu-sense's
+ * approach for the same predator_v4/nitro_v4 family) rather than the raw
+ * 4-byte ACPI buffer used by older models. EXPERIMENTAL, not verified.
  */
 static struct quirk_entry quirk_acer_predator_phn16_73 = {
 	.turbo = 1,
@@ -615,6 +621,7 @@ static struct quirk_entry quirk_acer_predator_phn16_73 = {
 	.gpu_fans = 1,
 	.predator_v4 = 1,
 	.pwm = 1,
+	.four_zone_kb = 1,
 };
 
 static struct quirk_entry quirk_acer_predator_phn18_71 = {
@@ -2635,13 +2642,55 @@ struct led_zone_set_param {
 		u8 blue;
 } __packed;
 
+/*
+ * EXPERIMENTAL (four_zone_kb quirk): some predator_v4 models (e.g. PHN16-73)
+ * appear to expect the zone/color payload as a full 8-byte ACPI integer
+ * argument rather than a raw 4-byte buffer. Byte layout (zone,red,green,blue)
+ * is identical to led_zone_set_param; bytes 4-7 are zero padding.
+ * Not verified on real hardware yet - reported not working with the 4-byte
+ * form on PHN16-73 (issue #4).
+ */
+struct led_zone_set_param_u64 {
+		u8 zone;
+		u8 red;
+		u8 green;
+		u8 blue;
+		u8 reserved[4];
+} __packed;
+
 static ssize_t gkbbl_static_drv_write(struct file *file, const char __user *buf, size_t count, loff_t *offset)
 {
 	u8 config_buf[4]={0,0,0,0};
 	unsigned long err;
 	struct led_zone_set_param set_params;
+	struct led_zone_set_param_u64 set_params_u64;
 	struct acpi_buffer set_input;
 	err = copy_from_user(config_buf, buf, GAMING_KBBL_STATIC_CONFIG_LEN);
+
+	if (count != GAMING_KBBL_STATIC_CONFIG_LEN) {
+		pr_err("Invalid data given to gaming keyboard static backlight");
+		return 0;
+	}
+
+	if (err < 0)
+		pr_err("Copying data from userspace failed with code: %lu\n", err);
+
+	if (quirks->four_zone_kb) {
+		set_params_u64 = (struct led_zone_set_param_u64) {
+			.zone = config_buf[0],
+			.red = config_buf[1],
+			.green = config_buf[2],
+			.blue = config_buf[3],
+			.reserved = {0, 0, 0, 0},
+		};
+		set_input = (struct acpi_buffer) {
+			sizeof(set_params_u64),
+			&set_params_u64
+		};
+		wmi_evaluate_method(WMID_GUID4, 0, ACER_WMID_SET_GAMING_STATIC_LED_METHODID, &set_input, NULL);
+		return count;
+	}
+
 	set_params = (struct led_zone_set_param) {
 		.zone = config_buf[0],
 		.red = config_buf[1],
@@ -2652,14 +2701,6 @@ static ssize_t gkbbl_static_drv_write(struct file *file, const char __user *buf,
 		sizeof(set_params),
 		&set_params
 	};
-
-	if (count != GAMING_KBBL_STATIC_CONFIG_LEN) {
-		pr_err("Invalid data given to gaming keyboard static backlight");
-		return 0;
-	}
-
-	if (err < 0)
-		pr_err("Copying data from userspace failed with code: %lu\n", err);
 
 	wmi_evaluate_method( WMID_GUID4, 0, ACER_WMID_SET_GAMING_STATIC_LED_METHODID, &set_input, NULL);
 	return count;
