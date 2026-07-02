@@ -267,6 +267,17 @@ fi
 if make $MAKE_EXTRA > "$MAKE_LOG" 2>&1 && [ -f "$KERNEL_DIR/facer.ko" ]; then
     MODULE_OK=1
     cp "$KERNEL_DIR/facer.ko" "$INSTALL_DIR/kernel/"
+
+    # If a DKMS-managed facer module exists from a previous install (e.g. via
+    # the Go installer), remove it first. Leaving both a DKMS copy and this
+    # raw insmod copy on disk causes depmod/modprobe to resolve the bare
+    # "facer" module name ambiguously on boot, which can leave a stale
+    # module loaded (breaking things like the WMI hotkey input device).
+    if command -v dkms &>/dev/null && dkms status facer 2>/dev/null | grep -q .; then
+        dkms remove -m facer -v 0.2 --all 2>/dev/null || true
+        rm -rf /usr/src/facer-0.2 2>/dev/null || true
+    fi
+
     # Make module load on every boot
     mkdir -p "/lib/modules/$(uname -r)/extra/"
     cp "$KERNEL_DIR/facer.ko" "/lib/modules/$(uname -r)/extra/"
@@ -341,22 +352,32 @@ if __name__=='__main__': main()
 HOTKEY
 chmod +x "$INSTALL_DIR/hotkey-daemon.py"
 
-# Autostart entry
-AUTOSTART_DIR="$REAL_HOME/.config/autostart"
-mkdir -p "$AUTOSTART_DIR"
-cat > "$AUTOSTART_DIR/predator-sense-hotkey.desktop" << 'AUTO'
-[Desktop Entry]
-Type=Application
-Name=Predator Sense Hotkey
-Exec=/opt/predator-sense/hotkey-daemon.py
-Hidden=false
-NoDisplay=true
-X-GNOME-Autostart-enabled=true
-AUTO
-chown -R "$REAL_USER:$REAL_USER" "$AUTOSTART_DIR/predator-sense-hotkey.desktop"
+# systemd user service (single source of truth — see installer/main.go for why:
+# an XDG autostart .desktop PLUS this service used to spawn two listeners each
+# dispatching Activate on every keypress, saturating the main loop).
+SVC_DIR="$REAL_HOME/.config/systemd/user"
+mkdir -p "$SVC_DIR"
+cat > "$SVC_DIR/predator-sense-hotkey.service" << 'SERVICE'
+[Unit]
+Description=Predator Sense Hotkey Listener
+After=graphical-session.target
+[Service]
+ExecStart=/opt/predator-sense/hotkey-daemon.py
+Restart=on-failure
+RestartSec=5
+[Install]
+WantedBy=default.target
+SERVICE
+chown -R "$REAL_USER:$REAL_USER" "$SVC_DIR/predator-sense-hotkey.service"
 
-# Start hotkey daemon now
-sudo -u "$REAL_USER" bash -c 'nohup /opt/predator-sense/hotkey-daemon.py > /dev/null 2>&1 &' 2>/dev/null || true
+# Remove legacy XDG autostart entry from older installs.
+rm -f "$REAL_HOME/.config/autostart/predator-sense-hotkey.desktop"
+
+# Kill any orphan daemons before re-enabling the service (avoids duplicate
+# listeners surviving across reinstalls).
+pkill -f "/opt/predator-sense/hotkey-daemon.py" 2>/dev/null || true
+
+sudo -u "$REAL_USER" bash -c 'systemctl --user daemon-reload && systemctl --user enable --now predator-sense-hotkey.service' 2>/dev/null || true
 msg ok "Hotkey + autostart configured"
 
 # ─── Cleanup ───

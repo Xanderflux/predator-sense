@@ -734,6 +734,15 @@ func installModule() error {
 		extraEnv = append(extraEnv, "LD=ld.lld")
 	}
 
+	// Remove any loose (non-DKMS) copy of the module from a previous install
+	// via remote-install.sh (which drops facer.ko directly into .../extra/).
+	// Leaving both a loose copy and this DKMS-managed one on disk makes
+	// depmod/modprobe resolve the bare "facer" module name ambiguously on
+	// boot, which can leave a stale module loaded.
+	kernelRelease := strings.TrimSpace(runOutput("uname", "-r"))
+	os.Remove(fmt.Sprintf("/lib/modules/%s/extra/facer.ko", kernelRelease))
+	run("depmod", "-a")
+
 	// Register, build, install for the running kernel. AUTOINSTALL=yes in
 	// dkms.conf makes future kernel upgrades rebuild this module automatically.
 	if err := run("dkms", "add", "-m", dkmsModule, "-v", dkmsVersion); err != nil {

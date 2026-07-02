@@ -31,10 +31,16 @@ pub struct AppConfig {
     pub temp_alerts: bool,
     #[serde(default)]
     pub auto_profile_ac: bool,
+    #[serde(default = "default_font_scale")]
+    pub font_scale: f64,
 }
 
 fn default_true() -> bool {
     true
+}
+
+fn default_font_scale() -> f64 {
+    1.0
 }
 
 impl Default for AppConfig {
@@ -46,6 +52,7 @@ impl Default for AppConfig {
             start_on_boot: false,
             temp_alerts: true,
             auto_profile_ac: false,
+            font_scale: 1.0,
         }
     }
 }
