@@ -2676,6 +2676,28 @@ static ssize_t gkbbl_static_drv_write(struct file *file, const char __user *buf,
 		pr_err("Copying data from userspace failed with code: %lu\n", err);
 
 	if (quirks->four_zone_kb) {
+		/*
+		 * EXPERIMENTAL: some predator_v4 firmwares appear to require a
+		 * "priming" call to the dynamic backlight method (20) before a
+		 * static per-zone color write via method 6 is actually latched
+		 * by the firmware - mirroring linuwu-sense's set_per_zone_color(),
+		 * which always calls set_kb_status(0,0,brightness,0,0,0,0) first.
+		 * The trailing byte value 3 at offset 8 is copied verbatim from
+		 * that implementation; its exact meaning is undocumented.
+		 * Not verified to fix anything on real hardware yet (issue #4).
+		 */
+		u8 prime_payload[GAMING_KBBL_CONFIG_LEN] = {0};
+		struct acpi_buffer prime_input;
+
+		prime_payload[2] = 100; /* brightness */
+		prime_payload[8] = 3;
+		prime_payload[9] = 1;
+		prime_input = (struct acpi_buffer) {
+			sizeof(prime_payload),
+			&prime_payload
+		};
+		wmi_evaluate_method(WMID_GUID4, 0, ACER_WMID_SET_GAMINGKBBL_METHODID, &prime_input, NULL);
+
 		set_params_u64 = (struct led_zone_set_param_u64) {
 			.zone = config_buf[0],
 			.red = config_buf[1],
