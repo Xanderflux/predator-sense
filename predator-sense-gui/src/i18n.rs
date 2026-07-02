@@ -85,7 +85,7 @@ fn t_pt<'a>(key: &'a str) -> &'a str {
         "dynamic_mode" => "Dinâmico",
         "brightness" => "Brilho:",
         "speed" => "Velocidade:",
-        "section" => "Secção",
+        "section" => "Seção",
         "apply" => "Aplicar",
         "applied" => "Iluminação aplicada!",
         "breath" => "Respiração",

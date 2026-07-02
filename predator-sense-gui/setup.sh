@@ -190,14 +190,16 @@ install_hotkey() {
 #!/usr/bin/env python3
 import struct, subprocess, os, signal, sys, time
 KEY_CODE = 425; EV_KEY = 1; KEY_PRESS = 1
+KB_NAMES = ['AT Translated Set 2 keyboard', 'Acer WMI hotkeys']
 def find_kb():
     with open('/proc/bus/input/devices') as f: content = f.read()
-    for block in content.split('\n\n'):
-        if 'AT Translated Set 2 keyboard' in block:
-            for line in block.split('\n'):
-                if line.startswith('H: Handlers='):
-                    for p in line.split():
-                        if p.startswith('event'): return f'/dev/input/{p}'
+    for name in KB_NAMES:
+        for block in content.split('\n\n'):
+            if name in block:
+                for line in block.split('\n'):
+                    if line.startswith('H: Handlers='):
+                        for p in line.split():
+                            if p.startswith('event'): return f'/dev/input/{p}'
     return None
 def open_app():
     env = {**os.environ, 'DISPLAY': ':0'}

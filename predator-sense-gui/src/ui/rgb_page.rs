@@ -355,7 +355,11 @@ fn draw_keyboard(cr: &gtk4::cairo::Context, w: f64, h: f64, colors: &[(u8, u8, u
             cr.rectangle(x + pad, y + pad, kw - pad * 2.0, kh - pad * 2.0);
             let _ = cr.fill();
 
-            cr.set_source_rgba(r as f64/255.0, g as f64/255.0, b as f64/255.0, 0.5);
+            cr.set_source_rgba(r as f64/255.0, g as f64/255.0, b as f64/255.0, 0.85);
+            cr.rectangle(x + pad, y + pad, kw - pad * 2.0, kh - pad * 2.0);
+            let _ = cr.fill();
+
+            cr.set_source_rgba(r as f64/255.0, g as f64/255.0, b as f64/255.0, 1.0);
             cr.set_line_width(1.0);
             cr.rectangle(x + pad, y + pad, kw - pad * 2.0, kh - pad * 2.0);
             let _ = cr.stroke();

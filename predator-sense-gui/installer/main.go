@@ -599,14 +599,16 @@ func installHotkey() error {
 	daemon := `#!/usr/bin/env python3
 import struct,subprocess,os,signal,sys,time
 KEY_CODE=425;EV_KEY=1;KEY_PRESS=1
+KB_NAMES=['AT Translated Set 2 keyboard','Acer WMI hotkeys']
 def find_kb():
     with open('/proc/bus/input/devices') as f: c=f.read()
-    for b in c.split('\n\n'):
-        if 'AT Translated Set 2 keyboard' in b:
-            for l in b.split('\n'):
-                if l.startswith('H: Handlers='):
-                    for p in l.split():
-                        if p.startswith('event'): return f'/dev/input/{p}'
+    for name in KB_NAMES:
+        for b in c.split('\n\n'):
+            if name in b:
+                for l in b.split('\n'):
+                    if l.startswith('H: Handlers='):
+                        for p in l.split():
+                            if p.startswith('event'): return f'/dev/input/{p}'
     return None
 def open_app():
     e={**os.environ,'DISPLAY':':0'}
