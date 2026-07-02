@@ -312,6 +312,32 @@ pub fn build() -> gtk::Box {
         });
     }
     btn_box.append(&apply_btn);
+
+    // Fallback: turn off backlight via brightness-only WMI call (method 20,
+    // minimal payload). Useful on models where static/dynamic color control
+    // doesn't apply correctly but brightness does - e.g. as an accessibility
+    // mitigation for pulsing effects that can't otherwise be stopped.
+    let off_btn = gtk::Button::with_label(crate::i18n::t("kbd_backlight_off"));
+    {
+        let s = state.clone();
+        off_btn.connect_clicked(move |_| {
+            let st = s.borrow();
+            match rgb::apply_brightness_only(0) {
+                Ok(()) => {
+                    st.status.set_text(crate::i18n::t("kbd_backlight_off_applied"));
+                    st.status.remove_css_class("status-error");
+                    st.status.add_css_class("status-success");
+                }
+                Err(e) => {
+                    st.status.set_text(&e);
+                    st.status.remove_css_class("status-success");
+                    st.status.add_css_class("status-error");
+                }
+            }
+        });
+    }
+    btn_box.append(&off_btn);
+
     page.append(&btn_box);
     page.append(&status);
 

@@ -142,6 +142,32 @@ pub fn apply_dynamic_effect(config: &RgbConfig) -> Result<(), String> {
     write_to_device(DEVICE_DYNAMIC, &payload)
 }
 
+/// Apply keyboard backlight brightness only, without touching color/effect.
+///
+/// Uses the same WMI method (20) and device as `apply_dynamic_effect`, but with
+/// a minimal payload (only brightness + enable flag, rest zeroed) matching the
+/// format confirmed working on Predator PHN16-73 by the community `acer_brightness`
+/// kernel module. Useful as a fallback on models where static/dynamic color control
+/// doesn't work but brightness (including turning the backlight fully off) does.
+pub fn apply_brightness_only(brightness: u8) -> Result<(), String> {
+    if !is_module_loaded() {
+        return Err(format!(
+            "Dispositivo {} não encontrado. O módulo kernel está carregado?",
+            DEVICE_DYNAMIC
+        ));
+    }
+
+    if brightness > 100 {
+        return Err("Brilho deve ser entre 0 e 100".into());
+    }
+
+    let mut payload = [0u8; 16];
+    payload[2] = brightness;
+    payload[9] = 1;
+
+    write_to_device(DEVICE_DYNAMIC, &payload)
+}
+
 /// Apply static zone coloring.
 ///
 /// SAFETY: Validates zone number (1-4) and writes a 4-byte payload.
