@@ -1,0 +1,145 @@
+FAN CONTROL FIX — Acer Predator PT51S (Volante_ADH)
+Date: 2026-07-03
+Kernel: 7.0.11
+Module: facer.ko (fork of acer-wmi)
+
+================================================================
+PROBLEM SUMMARY
+================================================================
+
+1. No /sys/class/hwmon/acer device appeared after module load.
+2. Turbo/Predator key produced: "Unknown function number - 8 - 0"
+3. BIOS reports corrupted DMI product name: "Aspier XXXX" (board: Volante_ADH)
+4. Real model: Acer Predator PT51S (PT516-series)
+
+================================================================
+ROOT CAUSE
+================================================================
+
+The driver capability bit ACER_CAP_FAN_SPEED_READ was never being set
+because:
+
+a) No DMI quirk matched the corrupted product name "Aspier XXXX".
+b) The generic fallback path (wmid_v2_interface + WMID_GUID3+GUID4)
+   DID select quirk_acer_predator_v4, which sets ACER_CAP_FAN_SPEED_READ,
+   BUT force_caps override (acer_quirks set_force_caps entries) could
+   still clobber the entire capability mask.
+c) The turbo key event function=8 was not handled in acer_wmi_notify(),
+   so ACER_CAP_TURBO_FAN mode changes were never triggered by the button.
+
+================================================================
+CHANGES MADE TO kernel/facer.c
+================================================================
+
+CHANGE 1 — New DMI quirk entry for exact corrupted BIOS name
+Location: acer_quirks[] table
+  Added entry matching DMI_PRODUCT_NAME "Aspier XXXX"
+  Added entry matching DMI_PRODUCT_NAME "Predator PT51S"
+  Added entry matching DMI_BOARD_NAME "Volante_ADH"
+  All three use quirk_acer_predator_pt51s:
+    .turbo = 1, .cpu_fans = 1, .gpu_fans = 1, .predator_v4 = 1, .pwm = 1
+Location: quirk definitions (new struct)
+  static struct quirk_entry quirk_acer_predator_pt51s = {
+      .turbo = 1, .cpu_fans = 1, .gpu_fans = 1,
+      .predator_v4 = 1, .pwm = 1,
+  };
+
+Result: find_quirks() now matches PT51S directly instead of falling
+through to the generic quirk. ACER_CAP_FAN_SPEED_READ, ACER_CAP_PWM,
+ACER_CAP_PLATFORM_PROFILE, ACER_CAP_TURBO_* are all enabled at init.
+
+CHANGE 2 — force_caps changed from overwrite to OR
+Location: acer_wmi_init(), around line 4307
+  Was:
+    if (force_caps != -1)
+        interface->capability = force_caps;
+  Became:
+    if (force_caps != -1) {
+        pr_info("force_caps=0x%x OR-ing ...");
+        interface->capability |= force_caps;
+    }
+
+Result: quirk-derived bits (FAN_SPEED_READ, PWM, etc.) are no longer
+wiped out if force_caps happens to be set by a DMI blacklist entry.
+
+CHANGE 3 — Handle turbo key function=8 (newer Predator firmware event)
+Location: enum acer_wmi_event_ids
+  Added: WMID_GAMING_TURBO_KEY_EVENT_V2 = 0x8
+
+Location: acer_wmi_notify() switch statement
+  Added case WMID_GAMING_TURBO_KEY_EVENT_V2: falling through to the
+  existing WMID_GAMING_TURBO_KEY_EVENT handler.
+
+Result: BIOS events with function=8 are now routed to acer_toggle_turbo()
+instead of printing "Unknown function number - 8 - 0".
+
+CHANGE 4 — Robust turbo fallback for unexpected key_num values
+Location: acer_wmi_notify(), WMID_GAMING_TURBO_KEY_EVENT handler
+  When key_num != 0x1 and != 0x2 and != 0x4 and != 0x5,
+  route to acer_toggle_turbo() instead of silently dropping.
+
+Result: Pressing the turbo key on this machine generates key_num=0x1
+with device_state=0, which previously hit the "macro key state"
+warning and was dropped. It now correctly toggles turbo mode.
+
+CHANGE 5 — Synchronized turbo toggle uses new PWM API when available
+Location: acer_toggle_turbo()
+  When ACER_CAP_PWM is set, turbo ON/OFF now calls:
+    WMID_gaming_set_fan_behavior(ACER_GAMING_FAN_BEHAVIOR_CPU, mode)
+    WMID_gaming_set_fan_behavior(ACER_GAMING_FAN_BEHAVIOR_GPU, mode)
+  instead of the old unified WMID_gaming_set_fan_mode().
+
+Result: CPU and GPU fans switch between auto and turbo independently.
+Old path mixed both fans into a single bitfield; GPU fan was left
+stuck at the previous state.
+
+================================================================
+BUILD AND INSTALL
+================================================================
+
+cd /home/xanderflux/predator-sense/predator-sense-gui/kernel
+make clean && make
+sudo cp facer.ko /lib/modules/$(uname -r)/extra/facer.ko
+sudo rmmod facer 2>/dev/null || true
+sudo modprobe facer
+
+================================================================
+VERIFICATION
+================================================================
+
+dmesg should show:
+  facer: Acer Laptop ACPI-WMI Extras
+  facer: Function bitmap for Communication Button: 0x801
+  facer: acer_wmi_hwmon_init: registering hwmon device
+  input: Acer WMI hotkeys as /devices/virtual/input/inputXX
+
+hwmon device appears at /sys/class/hwmon/hwmonX/ (name=acer):
+  fan1_input — CPU fan RPM
+  fan2_input — GPU fan RPM
+  pwm1       — CPU PWM 0-255
+  pwm1_enable — CPU mode (0=turbo, 1=custom, 2=auto)
+  pwm2       — GPU PWM 0-255
+  pwm2_enable — GPU mode (0=turbo, 1=custom, 2=auto)
+
+Turbo key (function=8) now toggles both fans auto<->turbo.
+
+================================================================
+WHAT STILL NEEDS APP-SIDE WORK
+================================================================
+
+The GUI's capability detection for "Fan speed control (PWM)" calls:
+  /opt/predator-sense/predator-sense-helper pwm-available
+
+The installed helper's acer_hwmon() check must find name="acer" AND
+pwm1 file. If the helper is the old version without PWM logic, the
+GUI will show PWM as unsupported even though the kernel exposes it.
+
+Fix: update /opt/predator-sense/predator-sense-helper to include
+the pwm-available/pwm-cpu/pwm-gpu cases, then rebuild the Rust GUI
+and reinstall.
+
+================================================================
+FILES MODIFIED
+================================================================
+
+/home/xanderflux/predator-sense/predator-sense-gui/kernel/facer.c
