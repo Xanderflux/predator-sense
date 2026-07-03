@@ -2677,27 +2677,47 @@ static ssize_t gkbbl_static_drv_write(struct file *file, const char __user *buf,
 
 	if (quirks->four_zone_kb) {
 		/*
-		 * EXPERIMENTAL: some predator_v4 firmwares appear to require a
-		 * "priming" call to the dynamic backlight method (20) before a
-		 * static per-zone color write via method 6 is actually latched
-		 * by the firmware - mirroring linuwu-sense's set_per_zone_color(),
-		 * which always calls set_kb_status(0,0,brightness,0,0,0,0) first.
-		 * The trailing byte value 3 at offset 8 is copied verbatim from
-		 * that implementation; its exact meaning is undocumented.
-		 * Not verified to fix anything on real hardware yet (issue #4).
+		 * EXPERIMENTAL, attempt 3 (issue #4): the previous "prime with
+		 * RGB=0 then write color via method 6" sequence returned AE_OK
+		 * on both calls but never changed the keyboard color on real
+		 * PHN16-73 hardware. Method 6 (static LED) appears to be a
+		 * no-op on this generation - it is never confirmed to work here.
+		 *
+		 * Method 20 (dynamic backlight) IS confirmed working on this
+		 * hardware (effects visibly react). The app's own "commit"
+		 * call after a static zone write always zeroes the RGB bytes
+		 * in that method-20 payload, on the assumption method 6 already
+		 * applied the real color. New hypothesis: send the REAL color
+		 * directly in the method-20 payload with mode=0 (Static)
+		 * instead of zeroing it - maybe mode=0 + real RGB via method 20
+		 * IS how static color works on this generation, and method 6
+		 * was never the right method to begin with.
+		 *
+		 * Method 20 has no per-zone concept (it's a single global
+		 * color/effect), so this can only set ONE color for the whole
+		 * keyboard, not 4 independent zones - a real limitation, but
+		 * still a large improvement over "always pulsing, nothing
+		 * sticks" if it works at all. Still keeps the method 6 write
+		 * below (confirmed harmless no-op) in case zone-selection state
+		 * matters for some other reason.
+		 *
+		 * Not verified on real hardware yet (issue #4).
 		 */
-		u8 prime_payload[GAMING_KBBL_CONFIG_LEN] = {0};
-		struct acpi_buffer prime_input;
-		acpi_status prime_status, static_status;
+		u8 color_payload[GAMING_KBBL_CONFIG_LEN] = {0};
+		struct acpi_buffer color_input;
+		acpi_status color_status, static_status;
 
-		prime_payload[2] = 100; /* brightness */
-		prime_payload[8] = 3;
-		prime_payload[9] = 1;
-		prime_input = (struct acpi_buffer) {
-			sizeof(prime_payload),
-			&prime_payload
+		color_payload[2] = 100; /* brightness */
+		color_payload[5] = config_buf[1]; /* red */
+		color_payload[6] = config_buf[2]; /* green */
+		color_payload[7] = config_buf[3]; /* blue */
+		color_payload[8] = 3;
+		color_payload[9] = 1;
+		color_input = (struct acpi_buffer) {
+			sizeof(color_payload),
+			&color_payload
 		};
-		prime_status = wmi_evaluate_method(WMID_GUID4, 0, ACER_WMID_SET_GAMINGKBBL_METHODID, &prime_input, NULL);
+		color_status = wmi_evaluate_method(WMID_GUID4, 0, ACER_WMID_SET_GAMINGKBBL_METHODID, &color_input, NULL);
 
 		set_params_u64 = (struct led_zone_set_param_u64) {
 			.zone = config_buf[0],
@@ -2712,12 +2732,12 @@ static ssize_t gkbbl_static_drv_write(struct file *file, const char __user *buf,
 		};
 		static_status = wmi_evaluate_method(WMID_GUID4, 0, ACER_WMID_SET_GAMING_STATIC_LED_METHODID, &set_input, NULL);
 
-		pr_info("gkbbl_static (four_zone_kb): prime payload=[%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x] status=%s | static payload=[%02x %02x %02x %02x %02x %02x %02x %02x] status=%s\n",
-			prime_payload[0], prime_payload[1], prime_payload[2], prime_payload[3],
-			prime_payload[4], prime_payload[5], prime_payload[6], prime_payload[7],
-			prime_payload[8], prime_payload[9], prime_payload[10], prime_payload[11],
-			prime_payload[12], prime_payload[13], prime_payload[14], prime_payload[15],
-			acpi_format_exception(prime_status),
+		pr_info("gkbbl_static (four_zone_kb): color payload=[%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x] status=%s | static payload=[%02x %02x %02x %02x %02x %02x %02x %02x] status=%s\n",
+			color_payload[0], color_payload[1], color_payload[2], color_payload[3],
+			color_payload[4], color_payload[5], color_payload[6], color_payload[7],
+			color_payload[8], color_payload[9], color_payload[10], color_payload[11],
+			color_payload[12], color_payload[13], color_payload[14], color_payload[15],
+			acpi_format_exception(color_status),
 			set_params_u64.zone, set_params_u64.red, set_params_u64.green, set_params_u64.blue,
 			set_params_u64.reserved[0], set_params_u64.reserved[1], set_params_u64.reserved[2], set_params_u64.reserved[3],
 			acpi_format_exception(static_status));
